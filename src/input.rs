@@ -97,7 +97,7 @@ impl InputState {
         self.last_mouse = current;
 
         if let Some((_, vertical)) = window.get_scroll_wheel() {
-            self.zoom_delta += vertical;
+            self.zoom_delta += vertical.clamp(-config::ZOOM_MAX_STEP, config::ZOOM_MAX_STEP);
         }
     }
 
@@ -121,14 +121,27 @@ impl InputState {
         }
         self.orbit_delta += orbit * config::KEY_ORBIT_SPEED * dt;
 
+        // Acercar con la flecha arriba, con `+` o con el `+` del teclado
+        // numerico; alejar con los equivalentes. La tecla `+` comparte fisico con
+        // `=`, asi que minifb la reporta como `Equal`.
         let mut zoom = 0.0;
-        if window.is_key_down(Key::Up) {
+        if window.is_key_down(Key::Up)
+            || window.is_key_down(Key::Equal)
+            || window.is_key_down(Key::NumPadPlus)
+        {
             zoom += 1.0;
         }
-        if window.is_key_down(Key::Down) {
+        if window.is_key_down(Key::Down)
+            || window.is_key_down(Key::Minus)
+            || window.is_key_down(Key::NumPadMinus)
+        {
             zoom -= 1.0;
         }
-        self.zoom_delta += zoom * config::KEY_ZOOM_SPEED * dt;
+        // Se acota el paso de tiempo solo para el zoom. El primer frame despues
+        // de empezar a mover la camara llega con la duracion del framerate lento,
+        // y sin el tope ese frame produce un salto seguido de un movimiento
+        // suave, que es justo lo que se siente mal.
+        self.zoom_delta += zoom * config::KEY_ZOOM_SPEED * dt.min(config::ZOOM_MAX_FRAME_DELTA);
     }
 
     /// Si este frame movio la camara de alguna forma.

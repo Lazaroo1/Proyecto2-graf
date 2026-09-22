@@ -134,8 +134,17 @@ impl OrbitCamera {
     ///
     /// El zoom es multiplicativo, no aditivo: asi se siente igual de rapido de
     /// cerca que de lejos.
+    /// Aplica zoom. `delta` positivo acerca.
+    ///
+    /// El factor es `exp(-delta * sensibilidad)` y no `1 - delta * sensibilidad`.
+    /// La version lineal tiene dos problemas: no es simetrica, asi que acercar y
+    /// alejar la misma cantidad no devuelve a la distancia original, y con un
+    /// delta grande el factor cruza el cero y la distancia se va a valores sin
+    /// sentido. La exponencial siempre es positiva, compone bien (dos pasos
+    /// seguidos equivalen a uno del doble) y se siente igual de rapida de cerca
+    /// que de lejos.
     pub fn zoom(&mut self, delta: f32) {
-        let factor = 1.0 - delta * config::ZOOM_SENSITIVITY;
+        let factor = (-delta * config::ZOOM_SENSITIVITY).exp();
         self.distance = (self.distance * factor)
             .clamp(config::CAMERA_MIN_DISTANCE, config::CAMERA_MAX_DISTANCE);
     }

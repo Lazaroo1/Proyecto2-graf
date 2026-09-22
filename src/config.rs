@@ -78,9 +78,26 @@ pub const CAMERA_YAW: f32 = 0.6;
 pub const CAMERA_PITCH: f32 = 0.035;
 pub const CAMERA_PITCH_LIMIT: f32 = 1.52;
 pub const ORBIT_SENSITIVITY: f32 = 0.006;
-pub const ZOOM_SENSITIVITY: f32 = 0.12;
+/// Fraccion de distancia por click de rueda, como exponente.
+///
+/// Un click multiplica la distancia por `exp(0.05)`, o sea un 5%. Estaba en 0.12
+/// y saltaba.
+pub const ZOOM_SENSITIVITY: f32 = 0.05;
+/// Tope de clicks de rueda que se atienden en un solo frame.
+///
+/// Algunos drivers reportan el scroll acumulado en vez de un click por evento, y
+/// un golpe de rueda rapido puede llegar como un delta enorme en un unico frame.
+/// Sin tope, ese frame se come todo el rango de zoom de una.
+pub const ZOOM_MAX_STEP: f32 = 2.5;
 pub const KEY_ORBIT_SPEED: f32 = 1.1;
-pub const KEY_ZOOM_SPEED: f32 = 6.0;
+pub const KEY_ZOOM_SPEED: f32 = 5.0;
+/// Tope del tiempo de frame que se usa para el zoom por teclado.
+///
+/// Mas bajo que `MAX_FRAME_DELTA` a proposito. El primer frame despues de empezar
+/// a mover la camara todavia llega con la duracion del framerate lento, porque la
+/// resolucion recien baja en el frame siguiente: sin este tope, cada zoom arranca
+/// con un salto y despues se suaviza.
+pub const ZOOM_MAX_FRAME_DELTA: f32 = 0.05;
 pub const MAX_FRAME_DELTA: f32 = 0.25;
 
 // La historia dura milisegundos, no segundos de gas superpuesto.
