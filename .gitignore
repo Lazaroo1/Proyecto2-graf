@@ -1,0 +1,19 @@
+# Artefactos de compilacion
+/target/
+/artifacts/
+
+# Capturas de frames generadas por --probe
+*.ppm
+*.png
+
+# Backups de rustfmt
+**/*.rs.bk
+
+# Perfilado / debug
+*.pdb
+
+# Sistema operativo / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
