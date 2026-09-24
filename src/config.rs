@@ -36,7 +36,16 @@ pub const DISK_INNER_FADE: f32 = 1.08;
 /// Maximo de x^-3/4 (1-x^-1/2)^1/4. No es Novikov-Thorne completo.
 pub const THIN_DISK_PROFILE_PEAK: f32 = 0.487_872;
 pub const DISK_TEMPERATURE_PEAK: f32 = 7000.0;
+/// Variante de color: un poco mas calida, con el mismo g relativista.
+pub const PREVIEW_DISK_TEMPERATURE: f32 = 6500.0;
 pub const DISK_BRIGHTNESS: f32 = 1.0;
+// Envoltura exterior tenue. Su fuente gris aproxima dispersion de luz;
+// no se presenta como emision termica de gas frio ni como GRMHD.
+pub const OUTER_GAS_START: f32 = 8.0;
+pub const OUTER_GAS_END: f32 = 15.0;
+pub const OUTER_GAS_HEIGHT_RATIO: f32 = 0.035;
+pub const OUTER_GAS_OPTICAL_DEPTH: f32 = 0.07;
+pub const OUTER_GAS_BRIGHTNESS: f32 = 0.11;
 
 // Estructura procedural del plasma: no se resuelven ecuaciones MHD.
 pub const DISK_NOISE_SCALE: f32 = 1.5;
@@ -66,6 +75,14 @@ pub const STAR_BRIGHTNESS: f32 = 0.07;
 pub const STAR_TEMPERATURE_MIN: f32 = 2800.0;
 pub const STAR_TEMPERATURE_MAX: f32 = 12000.0;
 pub const NEBULA_BRIGHTNESS: f32 = 0.00008;
+/// Campo nuevo: estrellas resueltas para hacer visible la lente.
+pub const PREVIEW_STAR_GRID: f32 = 250.0;
+pub const PREVIEW_STAR_DENSITY: f32 = 0.04;
+pub const PREVIEW_STAR_SIZE: f32 = 0.13;
+pub const PREVIEW_STAR_BRIGHTNESS: f32 = 0.32;
+/// Deriva angular relativa del cielo (radianes/segundo de animacion).
+/// No modifica la metrica ni pretende simular un agujero en traslacion.
+pub const SKY_DRIFT_SPEED: f32 = 0.012;
 
 // Observador estatico; elevacion pequena para ver los dos arcos de la lente.
 pub const CAMERA_TARGET: Vec3 = Vec3::ZERO;

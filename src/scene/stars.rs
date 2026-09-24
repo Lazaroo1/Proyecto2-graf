@@ -38,13 +38,60 @@
 //! enorme: el cielo entero se pone mas azul y mas brillante. Es el mismo factor
 //! que aparece en el corrimiento del disco, y aca esta por la misma razon.
 
-use glam::{Vec2, Vec3};
+use glam::{Mat3, Vec2, Vec3};
 
 use crate::config;
 use crate::math::blackbody;
 use crate::math::curves;
 use crate::math::noise::NoiseTable;
 use crate::scene::relativity;
+
+/// Transformacion compartida por frame. Se aplica a la direccion de ESCAPE
+/// de cada geodesica, nunca a las coordenadas de pantalla: asi las estrellas
+/// cruzan la lente formando arcos y duplicaciones en el lugar correcto.
+pub struct SkyFrame {
+    rotation: Mat3,
+    blueshift: f32,
+}
+
+impl SkyFrame {
+    pub fn new(time: f32, observer_radius: f32) -> Self {
+        let angle = (time * config::SKY_DRIFT_SPEED).rem_euclid(std::f32::consts::TAU);
+        Self {
+            rotation: Mat3::from_rotation_z(0.23)
+                * Mat3::from_rotation_y(angle)
+                * Mat3::from_rotation_z(-0.23),
+            blueshift: relativity::blueshift_from_infinity(observer_radius),
+        }
+    }
+
+    pub fn sample(&self, escape_direction: Vec3) -> Vec3 {
+        if escape_direction == Vec3::ZERO {
+            return Vec3::ZERO;
+        }
+        let direction = self.rotation * escape_direction;
+        let mut color = Vec3::ZERO;
+        // Dos escalas: puntos pequenos y unas pocas estrellas que sirven de
+        // referencias para seguir el estiramiento. Nada gira en torno a la
+        // sombra a mano; ese movimiento sale del mapa de rayos.
+        for (scale, density, size, brightness, seed) in [
+            (
+                config::PREVIEW_STAR_GRID,
+                config::PREVIEW_STAR_DENSITY,
+                config::PREVIEW_STAR_SIZE,
+                config::PREVIEW_STAR_BRIGHTNESS,
+                0,
+            ),
+            (72.0, 0.10, 0.075, 0.45, 917),
+        ] {
+            if let Some(star) = star_layer(direction, scale, density, size, brightness, seed) {
+                color +=
+                    blackbody::planckian_rgb(star.temperature * self.blueshift) * star.brightness;
+            }
+        }
+        color * self.blueshift.powi(4)
+    }
+}
 
 /// Color del cielo en una direccion, visto por un observador estatico a
 /// `observer_radius`.
@@ -76,15 +123,33 @@ struct Star {
 
 /// Busca una estrella en la direccion dada.
 fn star(direction: Vec3) -> Option<Star> {
+    star_layer(
+        direction,
+        config::STAR_GRID,
+        config::STAR_DENSITY,
+        config::STAR_SIZE,
+        config::STAR_BRIGHTNESS,
+        0,
+    )
+}
+
+fn star_layer(
+    direction: Vec3,
+    grid: f32,
+    density: f32,
+    size: f32,
+    brightness_scale: f32,
+    seed: u32,
+) -> Option<Star> {
     let (face, u, v) = cube_face(direction);
 
     // `u` y `v` viven en [-1, 1] sobre la cara, o sea 90 grados de arco. La
     // media escala convierte ese rango de 2 unidades en `STAR_GRID` celdas.
-    let p = Vec2::new(u, v) * (config::STAR_GRID * 0.5);
+    let p = Vec2::new(u, v) * (grid * 0.5);
     let cell = p.floor();
 
-    let hash = hash_cell(cell, face);
-    if to_unit(hash) > config::STAR_DENSITY {
+    let hash = hash_cell(cell, face.wrapping_add(seed));
+    if to_unit(hash) > density {
         return None;
     }
 
@@ -96,7 +161,7 @@ fn star(direction: Vec3) -> Option<Star> {
             0.3 + 0.4 * to_unit(hash.rotate_left(13)),
         );
 
-    let offset = (p - center).length() / config::STAR_SIZE;
+    let offset = (p - center).length() / size;
     let falloff = (-offset * offset).exp();
     if falloff < 1.0e-3 {
         return None;
@@ -106,7 +171,7 @@ fn star(direction: Vec3) -> Option<Star> {
     // deja muchas apenas visibles y unas pocas notorias, que es como se ve un
     // cielo real.
     let magnitude = to_unit(hash.rotate_left(9));
-    let brightness = magnitude * magnitude * magnitude * config::STAR_BRIGHTNESS * falloff;
+    let brightness = magnitude * magnitude * magnitude * brightness_scale * falloff;
 
     let temperature = curves::remap(
         to_unit(hash.rotate_left(17)),

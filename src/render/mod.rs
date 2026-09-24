@@ -46,6 +46,7 @@ pub struct Renderer {
     gas: crate::scene::disk::GasTexture,
     rays: raymarch::RayCache,
     previous_time: Option<f32>,
+    enhanced: bool,
 }
 
 impl Renderer {
@@ -67,6 +68,7 @@ impl Renderer {
             gas: crate::scene::disk::GasTexture::new(),
             rays: raymarch::RayCache::default(),
             previous_time: None,
+            enhanced: true,
         }
     }
 
@@ -83,14 +85,20 @@ impl Renderer {
         };
         let history_reset = self.set_render_scale(target_scale);
 
-        self.gas.update(&self.noise, time);
-        let view_changed = self.rays.render(
-            &mut self.frame,
-            camera,
-            &self.noise,
-            &self.gas,
-            camera_moved,
-        );
+        if self.enhanced {
+            self.gas.update_preview(&self.noise, time);
+        } else {
+            self.gas.update(&self.noise, time);
+        }
+        let scene = raymarch::SceneFrame {
+            noise: &self.noise,
+            gas: &self.gas,
+            enhanced: self.enhanced,
+            sky: crate::scene::stars::SkyFrame::new(time, camera.position().length()),
+        };
+        let view_changed = self
+            .rays
+            .render(&mut self.frame, camera, &scene, camera_moved);
 
         // Tras un cambio de resolucion el historico quedo en negro: mezclarlo
         // oscureceria el frame entero. Este frame sale crudo y el siguiente ya
@@ -118,6 +126,14 @@ impl Renderer {
 
         self.frame
             .present_argb(self.window_width, self.window_height)
+    }
+
+    pub fn set_enhanced(&mut self, enhanced: bool) {
+        self.enhanced = enhanced;
+    }
+
+    pub fn enhanced(&self) -> bool {
+        self.enhanced
     }
 
     /// Cambia la resolucion interna, reasignando los buffers que dependen de ella.

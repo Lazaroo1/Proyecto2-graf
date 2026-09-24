@@ -26,6 +26,7 @@ use render::Renderer;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    let enhanced = !args.iter().any(|arg| arg == "--original");
 
     if args.iter().any(|a| a == "--verify") {
         if !verify::run() {
@@ -35,7 +36,7 @@ fn main() {
     }
 
     if args.first().is_some_and(|a| a == "--sequence") {
-        export_sequence(&args[1..]);
+        export_sequence(&args[1..], enhanced);
         return;
     }
 
@@ -49,15 +50,15 @@ fn main() {
         let pitch = args.get(index + 3).and_then(|s| s.parse::<f32>().ok());
         let distance = args.get(index + 4).and_then(|s| s.parse::<f32>().ok());
         let start = args.get(index + 5).and_then(|s| s.parse::<f32>().ok());
-        probe(frames, dump, pitch, distance, start);
+        probe(frames, dump, pitch, distance, start, enhanced);
         return;
     }
 
-    run();
+    run(enhanced);
 }
 
 /// Loop interactivo: ventana, input y presentacion.
-fn run() {
+fn run(enhanced: bool) {
     let mut window = Window::new(
         config::WINDOW_TITLE,
         config::WINDOW_WIDTH,
@@ -73,6 +74,7 @@ fn run() {
     let mut camera = OrbitCamera::new();
     let mut input = InputState::new();
     let mut renderer = Renderer::new(config::WINDOW_WIDTH, config::WINDOW_HEIGHT);
+    renderer.set_enhanced(enhanced);
 
     let mut time = 0.0;
     let mut paused = false;
@@ -90,6 +92,9 @@ fn run() {
 
         input.poll(&window, dt);
         input.apply_to(&mut camera);
+        if window.is_key_pressed(Key::V, minifb::KeyRepeat::No) {
+            renderer.set_enhanced(!renderer.enhanced());
+        }
 
         if window.is_key_pressed(Key::Space, minifb::KeyRepeat::No) {
             paused = !paused;
@@ -99,9 +104,14 @@ fn run() {
         }
         if title_updated.elapsed().as_secs_f32() > 0.5 {
             window.set_title(&format!(
-                "{} | {:.0} FPS | 1 cine  2 inclinada  3 arriba | Espacio: {}",
+                "{} | {:.0} FPS | V: {} | 1 cine 2 inclinada 3 arriba | Espacio: {}",
                 config::WINDOW_TITLE,
                 1.0 / elapsed.max(0.001),
+                if renderer.enhanced() {
+                    "variante"
+                } else {
+                    "original"
+                },
                 if paused { "continuar" } else { "pausa" }
             ));
             title_updated = Instant::now();
@@ -117,7 +127,7 @@ fn run() {
 
 /// Secuencia reproducible sin ventana. Se puede convertir a GIF/video fuera
 /// del renderer sin agregar dependencias de codificacion al proyecto.
-fn export_sequence(args: &[String]) {
+fn export_sequence(args: &[String], enhanced: bool) {
     let Some(directory) = args.first() else {
         eprintln!(
             "Uso: --sequence directorio [frames] [elevacion] [distancia] [tiempo] [ancho] [alto]"
@@ -142,6 +152,7 @@ fn export_sequence(args: &[String]) {
     let height = number(6, 540.0).clamp(32.0, 2160.0) as usize;
     std::fs::create_dir_all(directory).expect("no se pudo crear directorio de salida");
     let mut renderer = Renderer::new(width, height);
+    renderer.set_enhanced(enhanced);
     // Preparar antialias antes del primer frame exportado.
     for _ in 0..config::SPATIAL_SAMPLES {
         renderer.render(&camera, start, false);
@@ -183,6 +194,7 @@ fn probe(
     pitch: Option<f32>,
     distance: Option<f32>,
     start: Option<f32>,
+    enhanced: bool,
 ) {
     let start = start.unwrap_or(0.0);
     let (width, height) = (config::WINDOW_WIDTH, config::WINDOW_HEIGHT);
@@ -211,6 +223,7 @@ fn probe(
         // Un renderer nuevo por modo: compartirlo arrastraria el historico de
         // acumulacion de un modo al otro y el primer frame saldria mezclado.
         let mut renderer = Renderer::new(width, height);
+        renderer.set_enhanced(enhanced);
         let mut total = std::time::Duration::ZERO;
         let mut warm_total = std::time::Duration::ZERO;
         let mut warm_frames = 0;
