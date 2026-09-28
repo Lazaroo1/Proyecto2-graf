@@ -29,7 +29,7 @@
 //! Esos canales salen negativos y se recortan a cero, que es lo maximo que se
 //! puede hacer sin un mapeo de gamut completo.
 
-use glam::Vec3;
+use crate::math::Vec3;
 
 /// Limites de validez de la aproximacion de Kim et al., en kelvin.
 const MIN_TEMPERATURE: f32 = 1667.0;

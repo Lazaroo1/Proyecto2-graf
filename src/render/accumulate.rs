@@ -1,6 +1,6 @@
 //! Historia corta medida en segundos, no frames; se invalida al mover la camara.
+use crate::parallel;
 use crate::{config, render::framebuffer::HdrBuffer};
-use rayon::prelude::*;
 
 pub fn blend_factor(delta_time: f32) -> f32 {
     if delta_time < 0.0 || !delta_time.is_finite() {
@@ -15,11 +15,13 @@ pub fn blend(current: &mut HdrBuffer, history: &HdrBuffer, weight: f32) {
     if current.width() != history.width() || current.height() != history.height() {
         return;
     }
-    current
-        .pixels_mut()
-        .par_iter_mut()
-        .zip(history.pixels().par_iter())
-        .for_each(|(now, before)| *now = now.lerp(*before, weight));
+    const TILE: usize = 8192;
+    parallel::chunks_mut(current.pixels_mut(), TILE, 32768, |index, pixels| {
+        let offset = index * TILE;
+        for (now, before) in pixels.iter_mut().zip(&history.pixels()[offset..]) {
+            *now = now.lerp(*before, weight);
+        }
+    });
 }
 
 #[cfg(test)]

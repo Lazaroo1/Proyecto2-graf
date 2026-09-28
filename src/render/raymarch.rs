@@ -1,5 +1,7 @@
 //! Geodesicas cacheadas y transferencia radiativa volumetrica.
 //! El cache guarda muestras de mundo, no colores de frames anteriores.
+use crate::math::{Vec2, Vec3};
+use crate::parallel;
 use crate::render::framebuffer::HdrBuffer;
 use crate::scene::{
     blackhole::Photon,
@@ -12,8 +14,6 @@ use crate::{
     config,
     math::{noise::NoiseTable, Ray},
 };
-use glam::{Vec2, Vec3};
-use rayon::prelude::*;
 
 pub struct SceneFrame<'a> {
     pub noise: &'a NoiseTable,
@@ -100,20 +100,15 @@ impl RayCache {
             ];
             let offset = offsets[index % offsets.len()];
             // Un vector por fila, sin una asignacion heap por pixel/muestra.
-            let rows: Vec<SampleMap> = (0..height)
-                .into_par_iter()
-                .map(|y| {
-                    let mut row = SampleMap {
-                        rays: Vec::with_capacity(width),
-                        gas: Vec::new(),
-                    };
-                    for x in 0..width {
-                        let ray = trace(projector.ray_for_pixel(x, y, offset), scene, &mut row.gas);
-                        row.rays.push(ray);
-                    }
-                    row
-                })
-                .collect();
+            let mut rows: Vec<SampleMap> = (0..height).map(|_| SampleMap::default()).collect();
+            parallel::chunks_mut(&mut rows, 1, 4, |y, rows| {
+                let row = &mut rows[0];
+                row.rays.reserve(width);
+                for x in 0..width {
+                    let ray = trace(projector.ray_for_pixel(x, y, offset), scene, &mut row.gas);
+                    row.rays.push(ray);
+                }
+            });
             let total: usize = rows.iter().map(|row| row.gas.len()).sum();
             let mut map = SampleMap {
                 rays: Vec::with_capacity(width * height),
@@ -131,11 +126,10 @@ impl RayCache {
             self.samples.push(map);
         }
         let count = self.samples.len() as f32;
-        target
-            .pixels_mut()
-            .par_iter_mut()
-            .enumerate()
-            .for_each(|(i, pixel)| {
+        const TILE: usize = 256;
+        parallel::chunks_mut(target.pixels_mut(), TILE, 4096, |tile, pixels| {
+            for (offset, pixel) in pixels.iter_mut().enumerate() {
+                let i = tile * TILE + offset;
                 let mut color = Vec3::ZERO;
                 for map in &self.samples {
                     color += map.shade(i, scene);
@@ -147,7 +141,8 @@ impl RayCache {
                     color *= ceiling / peak;
                 }
                 *pixel = color;
-            });
+            }
+        });
         changed
     }
 }

@@ -1,6 +1,6 @@
 //! Unidades geometricas: rs = c = 1, M = 1/2.
 //! Separar constantes de relatividad de parametros del gas y de la camara.
-use glam::Vec3;
+use crate::math::Vec3;
 
 pub const WINDOW_WIDTH: usize = 960;
 pub const WINDOW_HEIGHT: usize = 540;

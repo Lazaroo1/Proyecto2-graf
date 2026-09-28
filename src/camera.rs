@@ -4,7 +4,7 @@
 //! (yaw, pitch, distancia) en vez de cartesiano, porque el control natural del
 //! mouse es angular: arrastrar mueve angulos, el scroll mueve el radio.
 
-use glam::{Vec2, Vec3};
+use crate::math::{Vec2, Vec3};
 
 use crate::config;
 use crate::math::Ray;

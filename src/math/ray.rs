@@ -1,6 +1,6 @@
 //! Rayo: origen mas direccion.
 
-use glam::Vec3;
+use crate::math::Vec3;
 
 /// Un rayo en espacio de mundo.
 ///

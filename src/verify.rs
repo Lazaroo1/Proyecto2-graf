@@ -23,7 +23,7 @@
 //!   agujero tiene que reproducir el `4GM/(c^2 b)` de Einstein de 1915, que es la
 //!   prediccion que se midio en el eclipse de 1919.
 
-use glam::Vec3;
+use crate::math::Vec3;
 
 use crate::config;
 use crate::scene::blackhole::Photon;

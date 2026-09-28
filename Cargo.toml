@@ -6,15 +6,16 @@ description = "Animacion de un agujero negro por raymarching en CPU - Proyecto 2
 
 [dependencies]
 minifb = "0.28"
-rayon = "1.10"
-glam = "0.30"
 
 [profile.release]
 opt-level = 3
 lto = true
 codegen-units = 1
 
-# El raymarch en debug es inusable: aun con `cargo run` (sin --release) queremos
-# que las dependencias matematicas esten optimizadas.
+# La matematica y el render son propios: optimizarlos tambien en desarrollo.
+# Para medir rendimiento y presentar el proyecto, usar siempre --release.
+[profile.dev]
+opt-level = 2
+
 [profile.dev.package."*"]
 opt-level = 3

@@ -1,11 +1,13 @@
 //! Compresion HDR con cromaticidad conservada. Sin tinte por canal.
+use crate::math::Vec3;
+use crate::parallel;
 use crate::render::framebuffer::HdrBuffer;
-use glam::Vec3;
-use rayon::prelude::*;
 
 pub fn apply(buffer: &mut HdrBuffer, exposure: f32, gamma: f32) {
-    buffer.pixels_mut().par_iter_mut().for_each(|color| {
-        *color = gamma_correct(tonemap_curve(*color * exposure), gamma);
+    parallel::chunks_mut(buffer.pixels_mut(), 4096, 16384, |_, pixels| {
+        for color in pixels {
+            *color = gamma_correct(tonemap_curve(*color * exposure), gamma);
+        }
     });
 }
 

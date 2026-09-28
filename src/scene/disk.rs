@@ -2,9 +2,9 @@
 //! Estructura vertical gaussiana y turbulencia procedural; no es GRMHD.
 use crate::config;
 use crate::math::{blackbody, curves, noise::NoiseTable};
+use crate::math::{Vec2, Vec3};
+use crate::parallel;
 use crate::scene::relativity::{self, RayFrame};
-use glam::{Vec2, Vec3};
-use rayon::prelude::*;
 
 /// Geometria y corrimiento reutilizables mientras la camara esta quieta.
 #[derive(Clone, Copy, Debug, Default)]
@@ -137,18 +137,15 @@ impl GasTexture {
     }
     fn update_range(&mut self, noise: &NoiseTable, time: f32, outer_radius: f32) {
         let width = config::GAS_TEXTURE_WIDTH;
-        self.values
-            .par_chunks_mut(width)
-            .enumerate()
-            .for_each(|(y, row)| {
-                let radius = config::DISK_INNER_RADIUS
-                    + y as f32 / (config::GAS_TEXTURE_HEIGHT - 1) as f32
-                        * (outer_radius - config::DISK_INNER_RADIUS);
-                for (x, value) in row.iter_mut().enumerate() {
-                    let angle = x as f32 / width as f32 * std::f32::consts::TAU;
-                    *value = texture(noise, radius, angle, time);
-                }
-            });
+        parallel::chunks_mut(&mut self.values, width, 4096, |y, row| {
+            let radius = config::DISK_INNER_RADIUS
+                + y as f32 / (config::GAS_TEXTURE_HEIGHT - 1) as f32
+                    * (outer_radius - config::DISK_INNER_RADIUS);
+            for (x, value) in row.iter_mut().enumerate() {
+                let angle = x as f32 / width as f32 * std::f32::consts::TAU;
+                *value = texture(noise, radius, angle, time);
+            }
+        });
     }
     fn sample(&self, x: f32, y: f32) -> f32 {
         let width = config::GAS_TEXTURE_WIDTH;

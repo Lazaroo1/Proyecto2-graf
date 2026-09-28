@@ -17,7 +17,7 @@
 //! como la resolucion interna baja justamente mientras uno mueve la camara, el
 //! framerate cambia todo el tiempo.
 
-use glam::Vec2;
+use crate::math::Vec2;
 use minifb::{Key, MouseButton, MouseMode, Window};
 
 use crate::camera::OrbitCamera;

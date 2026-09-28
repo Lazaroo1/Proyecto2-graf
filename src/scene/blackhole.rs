@@ -23,7 +23,7 @@
 //! nota: los rayos que casi orbitan son los que forman el anillo, y son los que
 //! mas vueltas dan cerca del agujero.
 
-use glam::Vec3;
+use crate::math::Vec3;
 
 use crate::config;
 use crate::math::sdf;

@@ -7,7 +7,7 @@
 //! geodesicas, porque el halo que intentaba imitar resulto ser el anillo de
 //! fotones y ese sale solo.
 
-use glam::Vec3;
+use crate::math::Vec3;
 
 /// Distancia con signo a una esfera centrada en el origen.
 ///

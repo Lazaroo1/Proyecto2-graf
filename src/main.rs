@@ -12,6 +12,7 @@ mod camera;
 mod config;
 mod input;
 mod math;
+mod parallel;
 mod render;
 mod scene;
 mod verify;

@@ -7,12 +7,41 @@ en la apariencia de Gargantua. La lente gravitacional se obtiene integrando
 trayectorias de luz; el plasma es un volumen procedural con rotación diferencial,
 emisión y absorción. El color incorpora Doppler y corrimiento gravitacional.
 
-Todo se calcula en CPU con `rayon`, `glam` y `minifb`. El disco y las estrellas
-se generan durante la ejecución, sin imágenes ni GIFs usados como fondo.
+Todo el render se calcula en CPU con código propio y la biblioteca estándar
+de Rust. `minifb` se utiliza para la ventana, la entrada y la presentación del
+buffer de píxeles. El disco y las estrellas se generan durante la ejecución,
+sin imágenes ni GIFs usados como fondo.
+
+## Dependencias
+
+La única dependencia directa es `minifb`, que gestiona la ventana y la entrada:
+
+```toml
+[dependencies]
+minifb = "0.28"
+```
+
+- [vector.rs](src/math/vector.rs) implementa `Vec2`, `Vec3` y `Mat3`: productos
+  punto y cruz, normalización, interpolación y rotaciones.
+- [parallel.rs](src/parallel.rs) reparte bloques entre hilos persistentes con
+  `std::thread`, canales y sincronización de `std::sync`. Cada bloque tiene
+  un único escritor y todos los trabajos de una etapa terminan antes de
+  pasar a la siguiente. Los bloques pequeños se procesan en el hilo llamador.
+- Geodésicas, ruido, gas, cielo, bloom, tonemap y exportación PPM también
+  se implementan en el proyecto, sin librerías externas de cálculo o render.
+
+Para consultar las dependencias directas:
+
+```sh
+cargo tree --depth 1 --edges normal
+```
+
+`Cargo.lock` registra las dependencias transitivas que utiliza `minifb` para
+su integración con las plataformas.
 
 ## Dos versiones con `V`
 
-Ambas versiones forman parte del proyecto y se conservan para seguir ampliándolo.
+El proyecto incluye las versiones original y variante.
 **`V` alterna entre ellas durante la ejecución**, manteniendo la cámara y el
 tiempo de animación. El título de la ventana indica cuál está activa.
 
@@ -196,8 +225,8 @@ b_y=\frac{L_y}{E}=-\frac{(\mathbf r\times\mathbf v)_y}{E}.
 $$
 
 El signo negativo aparece porque se traza desde la cámara hacia la fuente,
-en sentido contrario al fotón recibido. En el código, el campo que guarda
-$b_y$ conserva el nombre `lz_over_e`, aunque el eje empleado es Y.
+en sentido contrario al fotón recibido. En el código, $b_y$ se almacena en
+el campo `lz_over_e`; el eje de rotación empleado es Y.
 
 $$
 T_{\mathrm{obs}}=gT_{\mathrm{em}},\qquad
@@ -463,9 +492,12 @@ cargo clippy --all-targets -- -D warnings
 cargo run --release -- --verify
 ```
 
-Las 15 pruebas cubren continuidad del ruido y del flujo, sentido de advección,
+Las 22 pruebas cubren continuidad del ruido y del flujo, sentido de advección,
 Doppler, integración de opacidad, conservación del color, caché, animación
-del cielo, rayos capturados y desvanecimiento del gas gris.
+del cielo, rayos capturados y desvanecimiento del gas gris. También verifican
+la orientación y composición de las rotaciones propias, la normalización de
+vectores y el procesamiento paralelo, incluidos bloques incompletos, trabajos
+anidados y finalización de los préstamos cuando hay un fallo en los hilos.
 
 La verificación analítica comprueba $b_c$, conservación de energía y momento
 angular, la órbita de fotones en $r=1.5$ y la deflexión en campo débil:
@@ -475,10 +507,9 @@ $$
 \qquad M/b\ll1.
 $$
 
-Esta última expresión es una referencia de prueba, no la fórmula usada para
-curvar los rayos. En la revisión registrada, la deriva de los invariantes fue
-del orden de $10^{-6}$ y la diferencia frente a esta serie fue de 0.425 %.
-`--verify` devuelve un código de error si alguna comprobación falla.
+Esta expresión sirve de referencia para validar la deflexión de los rayos.
+`--verify` informa los valores medidos, las referencias analíticas y sus
+errores; devuelve un código de error si alguna comprobación falla.
 
 Para medir arrastre real y cámara quieta, guardando el último frame:
 
@@ -501,19 +532,20 @@ Argumentos de `--sequence`: directorio, frames, elevación, distancia, tiempo
 inicial, ancho y alto. Se puede añadir `--original` al final para usar la otra
 versión. El directorio de salida se crea automáticamente.
 
-Los PPM contienen el render sin compresión. Las exportaciones y respaldos
-locales en `artifacts/` se excluyen de Git. Los FPS de reproducción de un
+Los PPM contienen el render sin compresión. Las exportaciones locales en
+`artifacts/` se excluyen de Git. Los FPS de reproducción de un
 GIF o video exportado no son una medición del rendimiento interactivo.
 
 ## Rendimiento
 
-Medición local del 23 de septiembre de 2026: 20 frames a 960×540, elevación
-de 2°, distancia de 21.5 radios y tiempo inicial de 2 segundos.
+Medición local del 28 de septiembre de 2026 con `std` + `minifb`, en un
+Intel Core i5-12500H: 30 frames a 960×540, elevación de 2°, distancia de
+21.5 radios y tiempo inicial de 2 segundos, compilado con `--release`.
 
 | Medida | Original | Variante |
 | --- | --- | --- |
-| Cámara quieta, después de preparar la lente | 69.7 ms/frame · 14.4 FPS | 80.1 ms/frame · 12.5 FPS |
-| Arrastre real, promedio completo a escala 0.33 | 73.2 ms/frame · 13.7 FPS | 90.6 ms/frame · 11.0 FPS |
+| Cámara quieta, después de preparar la lente | 59.9 ms/frame · 16.7 FPS | 70.7 ms/frame · 14.1 FPS |
+| Arrastre real, promedio completo a escala 0.33 | 58.8 ms/frame · 17.0 FPS | 68.5 ms/frame · 14.6 FPS |
 
 Preparar las trayectorias cuesta más que sombrear una vista ya calculada y
 se repite al mover la cámara o cambiar de versión. Los resultados dependen
@@ -535,7 +567,7 @@ y el cielo animado aumentan el costo de la variante.
 - La deriva de las estrellas no simula la traslación relativista del agujero.
   El modelo de color óptico tampoco reproduce las observaciones de radio del EHT.
 
-## Estructura y futuras ampliaciones
+## Estructura del proyecto
 
 | Archivo | Responsabilidad |
 | --- | --- |
@@ -546,6 +578,8 @@ y el cielo animado aumentan el costo de la variante.
 | [disk.rs](src/scene/disk.rs) | Emisión, absorción y textura del gas |
 | [stars.rs](src/scene/stars.rs) | Cielo original y fondo animado de la variante |
 | [noise.rs](src/math/noise.rs) | Ruido continuo y fBm |
+| [vector.rs](src/math/vector.rs) | Vectores, matrices y operadores propios |
+| [parallel.rs](src/parallel.rs) | Reparto de bloques con hilos de Rust estándar |
 | [raymarch.rs](src/render/raymarch.rs) | Muestreo del volumen y caché de trayectorias |
 | [render/mod.rs](src/render/mod.rs) | Selección de versión y etapas del render |
 | [accumulate.rs](src/render/accumulate.rs), [bloom.rs](src/render/bloom.rs), [tonemap.rs](src/render/tonemap.rs) | Historial, halo y presentación HDR |

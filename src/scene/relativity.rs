@@ -45,7 +45,7 @@
 //! esto da `1/r^4`. Por eso la deflexion cae mucho mas rapido con la distancia y,
 //! cerca del agujero, es mucho mas violenta.
 
-use glam::Vec3;
+use crate::math::Vec3;
 
 use crate::config;
 

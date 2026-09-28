@@ -38,7 +38,7 @@
 //! enorme: el cielo entero se pone mas azul y mas brillante. Es el mismo factor
 //! que aparece en el corrimiento del disco, y aca esta por la misma razon.
 
-use glam::{Mat3, Vec2, Vec3};
+use crate::math::{Mat3, Vec2, Vec3};
 
 use crate::config;
 use crate::math::blackbody;

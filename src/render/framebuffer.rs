@@ -7,8 +7,8 @@
 //! La conversion a los `u32` ARGB que espera minifb ocurre en un solo lugar,
 //! `present_argb`, y es lo ultimo que pasa en el frame.
 
-use glam::Vec3;
-use rayon::prelude::*;
+use crate::math::Vec3;
+use crate::parallel;
 
 use crate::config;
 
@@ -112,7 +112,7 @@ impl HdrBuffer {
             self.argb.resize(out_width * out_height, 0);
         }
 
-        // Se desestructura para que rayon pueda tomar prestados `pixels` (compartido)
+        // Se desestructura para tomar prestados `pixels` (compartido)
         // y `argb` (exclusivo) a la vez: son campos distintos, pero el borrow
         // checker necesita verlo explicito.
         let (pixels, argb) = (&self.pixels, &mut self.argb);
@@ -123,21 +123,19 @@ impl HdrBuffer {
         let scale_x = src_w as f32 / out_width as f32;
         let scale_y = src_h as f32 / out_height as f32;
 
-        argb.par_chunks_mut(out_width)
-            .enumerate()
-            .for_each(|(y, row)| {
-                let sy = ((y as f32 + 0.5) * scale_y - 0.5).clamp(0.0, (src_h - 1) as f32);
-                let y0 = sy as usize;
-                let y1 = (y0 + 1).min(src_h - 1);
-                for (x, out) in row.iter_mut().enumerate() {
-                    let sx = ((x as f32 + 0.5) * scale_x - 0.5).clamp(0.0, (src_w - 1) as f32);
-                    let x0 = sx as usize;
-                    let x1 = (x0 + 1).min(src_w - 1);
-                    let top = pixels[y0 * src_w + x0].lerp(pixels[y0 * src_w + x1], sx.fract());
-                    let bottom = pixels[y1 * src_w + x0].lerp(pixels[y1 * src_w + x1], sx.fract());
-                    *out = pack_argb(top.lerp(bottom, sy.fract()));
-                }
-            });
+        parallel::chunks_mut(argb, out_width, 32768, |y, row| {
+            let sy = ((y as f32 + 0.5) * scale_y - 0.5).clamp(0.0, (src_h - 1) as f32);
+            let y0 = sy as usize;
+            let y1 = (y0 + 1).min(src_h - 1);
+            for (x, out) in row.iter_mut().enumerate() {
+                let sx = ((x as f32 + 0.5) * scale_x - 0.5).clamp(0.0, (src_w - 1) as f32);
+                let x0 = sx as usize;
+                let x1 = (x0 + 1).min(src_w - 1);
+                let top = pixels[y0 * src_w + x0].lerp(pixels[y0 * src_w + x1], sx.fract());
+                let bottom = pixels[y1 * src_w + x0].lerp(pixels[y1 * src_w + x1], sx.fract());
+                *out = pack_argb(top.lerp(bottom, sy.fract()));
+            }
+        });
 
         &self.argb
     }

@@ -25,8 +25,8 @@
 //! horizontal y despues el vertical da el mismo resultado con `2(2r+1)` muestras
 //! por pixel en vez de `(2r+1)^2`. Con `r = 4`: 18 contra 81.
 
-use glam::Vec3;
-use rayon::prelude::*;
+use crate::math::Vec3;
+use crate::parallel;
 
 use crate::config;
 use crate::render::framebuffer::HdrBuffer;
@@ -194,21 +194,17 @@ impl BloomChain {
         }
         let scale = intensity / total.max(1.0e-6);
 
-        target
-            .pixels_mut()
-            .par_chunks_mut(width)
-            .enumerate()
-            .for_each(|(y, row)| {
-                let v = (y as f32 + 0.5) / height as f32;
-                for (x, pixel) in row.iter_mut().enumerate() {
-                    let u = (x as f32 + 0.5) / width as f32;
-                    let mut glow = Vec3::ZERO;
-                    for (mip, weight) in mips.iter().zip(weights.iter()) {
-                        glow += mip.sample(u, v) * *weight;
-                    }
-                    *pixel += glow * scale;
+        parallel::chunks_mut(target.pixels_mut(), width, 8192, |y, row| {
+            let v = (y as f32 + 0.5) / height as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let u = (x as f32 + 0.5) / width as f32;
+                let mut glow = Vec3::ZERO;
+                for (mip, weight) in mips.iter().zip(weights.iter()) {
+                    glow += mip.sample(u, v) * *weight;
                 }
-            });
+                *pixel += glow * scale;
+            }
+        });
     }
 }
 
@@ -227,32 +223,29 @@ fn extract_bright(src: &HdrBuffer, dst: &mut MipLevel, threshold: f32) {
     let src_pixels = src.pixels();
     let (dst_w, dst_h) = (dst.width, dst.height);
 
-    dst.pixels
-        .par_chunks_mut(dst_w)
-        .enumerate()
-        .for_each(|(y, row)| {
-            let y0 = y * src_h / dst_h;
-            let y1 = (((y + 1) * src_h / dst_h).max(y0 + 1)).min(src_h);
+    parallel::chunks_mut(&mut dst.pixels, dst_w, 16384, |y, row| {
+        let y0 = y * src_h / dst_h;
+        let y1 = (((y + 1) * src_h / dst_h).max(y0 + 1)).min(src_h);
 
-            for (x, out) in row.iter_mut().enumerate() {
-                let x0 = x * src_w / dst_w;
-                let x1 = (((x + 1) * src_w / dst_w).max(x0 + 1)).min(src_w);
+        for (x, out) in row.iter_mut().enumerate() {
+            let x0 = x * src_w / dst_w;
+            let x1 = (((x + 1) * src_w / dst_w).max(x0 + 1)).min(src_w);
 
-                let mut sum = Vec3::ZERO;
-                let mut count = 0.0f32;
-                for sy in y0..y1 {
-                    let base = sy * src_w;
-                    for sx in x0..x1 {
-                        sum += src_pixels[base + sx];
-                        count += 1.0;
-                    }
+            let mut sum = Vec3::ZERO;
+            let mut count = 0.0f32;
+            for sy in y0..y1 {
+                let base = sy * src_w;
+                for sx in x0..x1 {
+                    sum += src_pixels[base + sx];
+                    count += 1.0;
                 }
-
-                let average = sum / count.max(1.0);
-                let luma = average.dot(LUMA_WEIGHTS);
-                *out = average * ((luma - threshold).max(0.0) / luma.max(1.0e-4));
             }
-        });
+
+            let average = sum / count.max(1.0);
+            let luma = average.dot(LUMA_WEIGHTS);
+            *out = average * ((luma - threshold).max(0.0) / luma.max(1.0e-4));
+        }
+    });
 }
 
 /// Reduce `src` a la mitad con un box filter de 2x2.
@@ -264,23 +257,20 @@ fn downsample(src: &MipLevel, dst: &mut MipLevel) {
     let src_pixels = &src.pixels;
     let dst_w = dst.width;
 
-    dst.pixels
-        .par_chunks_mut(dst_w)
-        .enumerate()
-        .for_each(|(y, row)| {
-            let y0 = (2 * y).min(src_h - 1) * src_w;
-            let y1 = (2 * y + 1).min(src_h - 1) * src_w;
+    parallel::chunks_mut(&mut dst.pixels, dst_w, 16384, |y, row| {
+        let y0 = (2 * y).min(src_h - 1) * src_w;
+        let y1 = (2 * y + 1).min(src_h - 1) * src_w;
 
-            for (x, out) in row.iter_mut().enumerate() {
-                let x0 = (2 * x).min(src_w - 1);
-                let x1 = (2 * x + 1).min(src_w - 1);
-                *out = (src_pixels[y0 + x0]
-                    + src_pixels[y0 + x1]
-                    + src_pixels[y1 + x0]
-                    + src_pixels[y1 + x1])
-                    * 0.25;
-            }
-        });
+        for (x, out) in row.iter_mut().enumerate() {
+            let x0 = (2 * x).min(src_w - 1);
+            let x1 = (2 * x + 1).min(src_w - 1);
+            *out = (src_pixels[y0 + x0]
+                + src_pixels[y0 + x1]
+                + src_pixels[y1 + x0]
+                + src_pixels[y1 + x1])
+                * 0.25;
+        }
+    });
 }
 
 /// Convolucion 1D del gaussiano a lo ancho.
@@ -291,20 +281,17 @@ fn blur_horizontal(src: &MipLevel, dst: &mut MipLevel, kernel: &[f32]) {
     let radius = (kernel.len() / 2) as isize;
     let last = width as isize - 1;
 
-    dst.pixels
-        .par_chunks_mut(width)
-        .enumerate()
-        .for_each(|(y, row)| {
-            let base = y * width;
-            for (x, out) in row.iter_mut().enumerate() {
-                let mut acc = Vec3::ZERO;
-                for (k, &weight) in kernel.iter().enumerate() {
-                    let sx = (x as isize + k as isize - radius).clamp(0, last) as usize;
-                    acc += src_pixels[base + sx] * weight;
-                }
-                *out = acc;
+    parallel::chunks_mut(&mut dst.pixels, width, 16384, |y, row| {
+        let base = y * width;
+        for (x, out) in row.iter_mut().enumerate() {
+            let mut acc = Vec3::ZERO;
+            for (k, &weight) in kernel.iter().enumerate() {
+                let sx = (x as isize + k as isize - radius).clamp(0, last) as usize;
+                acc += src_pixels[base + sx] * weight;
             }
-        });
+            *out = acc;
+        }
+    });
 }
 
 /// Convolucion 1D del gaussiano a lo alto.
@@ -319,21 +306,18 @@ fn blur_vertical(src: &MipLevel, dst: &mut MipLevel, kernel: &[f32]) {
     let radius = (kernel.len() / 2) as isize;
     let last = height as isize - 1;
 
-    dst.pixels
-        .par_chunks_mut(width)
-        .enumerate()
-        .for_each(|(y, row)| {
-            // El acumulador es la fila de destino, asi que hay que limpiarla:
-            // trae el contenido del frame anterior.
-            row.fill(Vec3::ZERO);
-            for (k, &weight) in kernel.iter().enumerate() {
-                let sy = (y as isize + k as isize - radius).clamp(0, last) as usize;
-                let base = sy * width;
-                for (x, out) in row.iter_mut().enumerate() {
-                    *out += src_pixels[base + x] * weight;
-                }
+    parallel::chunks_mut(&mut dst.pixels, width, 16384, |y, row| {
+        // El acumulador es la fila de destino, asi que hay que limpiarla:
+        // trae el contenido del frame anterior.
+        row.fill(Vec3::ZERO);
+        for (k, &weight) in kernel.iter().enumerate() {
+            let sy = (y as isize + k as isize - radius).clamp(0, last) as usize;
+            let base = sy * width;
+            for (x, out) in row.iter_mut().enumerate() {
+                *out += src_pixels[base + x] * weight;
             }
-        });
+        }
+    });
 }
 
 /// Pesos de un gaussiano 1D discreto, normalizados para que sumen 1.

@@ -21,14 +21,14 @@
 //! Bilineal en XY mas lineal en Z: eso es interpolacion trilineal, con un solo
 //! acceso a memoria por muestra.
 
-use glam::{Vec2, Vec3};
+use crate::math::{Vec2, Vec3};
 
 use crate::config;
 
 /// Tabla de ruido precomputada, compartida por todos los hilos del raymarch.
 ///
 /// Se construye una vez en `Renderer::new` y se pasa por referencia. Es
-/// inmutable, asi que rayon la comparte entre hilos sin sincronizacion.
+/// inmutable, asi que se comparte entre hilos sin sincronizacion.
 pub struct NoiseTable {
     /// `NOISE_TABLE_SIZE^2` pares de valores en `[0, 1)`, en row-major.
     /// `x` es el canal del slice Z, `y` el del slice Z+1.
@@ -194,7 +194,7 @@ mod tests {
                 }
                 let left = noise.value_noise_3d(point - axis * 0.0001);
                 let right = noise.value_noise_3d(point + axis * 0.0001);
-                assert!((left - right).abs() < 0.001, "discontinuous at {point}");
+                assert!((left - right).abs() < 0.001, "discontinuous at {point:?}");
             }
         }
     }
