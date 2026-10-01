@@ -112,6 +112,8 @@ pub struct BloomChain {
     scratch: Vec<MipLevel>,
     /// Pesos del gaussiano 1D, ya normalizados. Se calculan una vez.
     kernel: Vec<f32>,
+    /// Destello horizontal de lente anamorfica. Solo la Endurance lo usa.
+    streak: MipLevel,
 }
 
 impl BloomChain {
@@ -121,6 +123,7 @@ impl BloomChain {
             mips: Vec::new(),
             scratch: Vec::new(),
             kernel: gaussian_kernel(config::BLOOM_BLUR_RADIUS, config::BLOOM_BLUR_SIGMA),
+            streak: MipLevel::new(1, 1),
         };
         chain.resize(base_width, base_height);
         chain
@@ -203,6 +206,73 @@ impl BloomChain {
                     glow += mip.sample(u, v) * *weight;
                 }
                 *pixel += glow * scale;
+            }
+        });
+    }
+}
+
+impl BloomChain {
+    /// Estira horizontalmente los puntos mas brillantes, como las lentes
+    /// anamorficas del cine. Parte del segundo nivel ya desenfocado y aplica
+    /// un filtro exponencial en ambos sentidos: costo lineal sin importar el
+    /// largo del destello.
+    pub fn streaks(&mut self, threshold: f32) {
+        let source = &self.mips[1.min(self.mips.len() - 1)];
+        let (width, height) = (source.width, source.height);
+        self.streak.resize(width, height);
+        let decay = (-1.0 / (config::STREAK_LENGTH * width as f32).max(1.0)).exp();
+        let norm = (1.0 - decay) / (1.0 + decay);
+        let pixels = &source.pixels;
+        parallel::chunks_mut(&mut self.streak.pixels, width, 16384, |y, row| {
+            let base = y * width;
+            let bright = |x: usize| {
+                let c = pixels[base + x];
+                let luma = c.dot(LUMA_WEIGHTS);
+                c * ((luma - threshold).max(0.0) / luma.max(1.0e-4))
+            };
+            let mut forward = Vec3::ZERO;
+            for (x, out) in row.iter_mut().enumerate() {
+                forward = forward * decay + bright(x);
+                *out = forward;
+            }
+            let mut backward = Vec3::ZERO;
+            for x in (0..width).rev() {
+                let b = bright(x);
+                backward = backward * decay + b;
+                // El pixel central quedo contado en ambas pasadas.
+                row[x] = (row[x] + backward - b) * norm;
+            }
+        });
+    }
+
+    /// Velo de la lente: los dos niveles mas anchos de la piramide, sumados
+    /// con un tinte frio. Es la luz del disco dispersada dentro del objetivo,
+    /// que aclara la sombra como en las tomas de la pelicula.
+    pub fn composite_glare(&self, target: &mut HdrBuffer, intensity: f32) {
+        let (width, height) = (target.width(), target.height());
+        let count = self.mips.len();
+        let wide = &self.mips[count.saturating_sub(2)..];
+        let tint = Vec3::new(0.82, 0.9, 1.0) * (intensity / wide.len().max(1) as f32);
+        parallel::chunks_mut(target.pixels_mut(), width, 8192, |y, row| {
+            let v = (y as f32 + 0.5) / height as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let u = (x as f32 + 0.5) / width as f32;
+                let glow = wide.iter().fold(Vec3::ZERO, |sum, mip| sum + mip.sample(u, v));
+                *pixel += glow * tint;
+            }
+        });
+    }
+
+    /// Suma el destello sobre `target`, tenido de azul como en una anamorfica.
+    pub fn composite_streaks(&self, target: &mut HdrBuffer, intensity: f32) {
+        let (width, height) = (target.width(), target.height());
+        let streak = &self.streak;
+        let tint = Vec3::new(0.45, 0.68, 1.0) * intensity;
+        parallel::chunks_mut(target.pixels_mut(), width, 8192, |y, row| {
+            let v = (y as f32 + 0.5) / height as f32;
+            for (x, pixel) in row.iter_mut().enumerate() {
+                let u = (x as f32 + 0.5) / width as f32;
+                *pixel += streak.sample(u, v) * tint;
             }
         });
     }
