@@ -21,6 +21,15 @@ la ventana, la entrada y la presentación del buffer de píxeles. El disco, las
 estrellas, el skybox y las texturas se generan durante la ejecución, sin
 imágenes ni GIFs usados como fondo.
 
+## Video
+
+[![Video del proyecto: las tres versiones, vistas, zoom y la nave girando](media/portada.jpg)](media/demo.mp4)
+
+**[Ver el video (MP4, 1 min 48 s)](media/demo.mp4)** · [descargar](media/demo.mp4?raw=true)
+
+Muestra las tres versiones, varios ángulos de cámara, el zoom hacia la nave y
+hacia afuera, y el anillo de la Endurance girando.
+
 ## Dependencias
 
 La única dependencia directa es `minifb`, autorizada por el profesor Pablo
@@ -929,6 +938,8 @@ y la que no conoce la nave no carga con la recursión de los rebotes.
 | [accumulate.rs](src/render/accumulate.rs), [bloom.rs](src/render/bloom.rs), [tonemap.rs](src/render/tonemap.rs) | Historial, halo, velo de lente, destello anamórfico y presentación HDR y de película |
 | [framebuffer.rs](src/render/framebuffer.rs) | Buffers, reescalado y presentación |
 | [verify.rs](src/verify.rs) | Comprobaciones analíticas |
+| [media/](media) | Video de demostración y su portada |
+| [EXPLICACION.md](EXPLICACION.md) | Guía de todos los archivos y de las diez ecuaciones más importantes |
 
 Los parámetros `PREVIEW_*`, `OUTER_GAS_*` y `SKY_DRIFT_SPEED` controlan
 la variante; los `SHIP_*`, `ENDURANCE_*`, `SKYBOX_*`, `FILM_*`, `GLARE_*` y
