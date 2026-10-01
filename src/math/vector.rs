@@ -18,6 +18,11 @@ impl Vec2 {
     }
 
     #[inline]
+    pub fn dot(self, other: Self) -> f32 {
+        self.x * other.x + self.y * other.y
+    }
+
+    #[inline]
     pub fn length(self) -> f32 {
         (self.x * self.x + self.y * self.y).sqrt()
     }
@@ -44,10 +49,9 @@ pub struct Vec3 {
 impl Vec3 {
     pub const ZERO: Self = Self::splat(0.0);
     pub const ONE: Self = Self::splat(1.0);
+    pub const X: Self = Self::new(1.0, 0.0, 0.0);
     pub const Y: Self = Self::new(0.0, 1.0, 0.0);
     pub const Z: Self = Self::new(0.0, 0.0, 1.0);
-    #[cfg(test)]
-    pub const X: Self = Self::new(1.0, 0.0, 0.0);
     #[cfg(test)]
     pub const NEG_Y: Self = Self::new(0.0, -1.0, 0.0);
 
@@ -122,13 +126,34 @@ impl Vec3 {
     }
 
     #[inline]
+    pub fn min(self, other: Self) -> Self {
+        Self::new(
+            self.x.min(other.x),
+            self.y.min(other.y),
+            self.z.min(other.z),
+        )
+    }
+
+    #[inline]
     pub fn max_element(self) -> f32 {
         self.x.max(self.y).max(self.z)
     }
 
-    #[cfg(test)]
+    #[inline]
     pub fn min_element(self) -> f32 {
         self.x.min(self.y).min(self.z)
+    }
+
+    /// Luminancia Rec. 709 de un color lineal.
+    #[inline]
+    pub fn luminance(self) -> f32 {
+        self.dot(Self::new(0.2126, 0.7152, 0.0722))
+    }
+
+    /// Exponencial por componente, para atenuacion de Beer-Lambert.
+    #[inline]
+    pub fn exp(self) -> Self {
+        Self::new(self.x.exp(), self.y.exp(), self.z.exp())
     }
 
     #[inline]
@@ -225,6 +250,23 @@ pub struct Mat3 {
 }
 
 impl Mat3 {
+    /// Base local -> mundo: cada columna es un eje local escrito en mundo.
+    pub const fn from_columns(x: Vec3, y: Vec3, z: Vec3) -> Self {
+        Self { columns: [x, y, z] }
+    }
+
+    /// Para una rotacion pura la transpuesta es la inversa.
+    pub fn transpose(self) -> Self {
+        let [a, b, c] = self.columns;
+        Self {
+            columns: [
+                Vec3::new(a.x, b.x, c.x),
+                Vec3::new(a.y, b.y, c.y),
+                Vec3::new(a.z, b.z, c.z),
+            ],
+        }
+    }
+
     pub fn from_rotation_y(angle: f32) -> Self {
         let (s, c) = angle.sin_cos();
         Self {
@@ -297,5 +339,7 @@ mod tests {
         assert!(((a * b) * v - a * (b * v)).length() < 1e-6);
         assert!((((a * b) * v).length() - v.length()).abs() < 1e-6);
         assert!((Mat3::from_rotation_y(-0.7) * (a * v) - v).length() < 1e-6);
+        let rotation = Mat3::from_rotation_z(0.4) * Mat3::from_rotation_y(-1.1);
+        assert!((rotation.transpose() * (rotation * v) - v).length() < 1e-5);
     }
 }
