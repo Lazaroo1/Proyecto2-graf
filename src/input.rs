@@ -22,6 +22,7 @@ use minifb::{Key, MouseButton, MouseMode, Window};
 
 use crate::camera::OrbitCamera;
 use crate::config;
+use crate::version::Version;
 
 /// Deltas de entrada acumulados en el frame actual.
 pub struct InputState {
@@ -157,25 +158,15 @@ impl InputState {
             || self.orbit_delta != Vec2::ZERO
     }
 
-    /// Traslada los deltas del frame a la camara.
-    pub fn apply_to(&self, camera: &mut OrbitCamera) {
+    /// Traslada los deltas del frame a la camara. Las vistas y el reset
+    /// dependen de la version: en la Endurance la camara orbita la nave.
+    pub fn apply_to(&self, camera: &mut OrbitCamera, version: Version) {
         if let Some(preset) = self.preset {
-            *camera = OrbitCamera::new();
-            match preset {
-                2 => {
-                    camera.pitch = 30.0_f32.to_radians();
-                    camera.distance = 36.0;
-                }
-                3 => {
-                    camera.pitch = config::CAMERA_PITCH_LIMIT;
-                    camera.distance = 44.0;
-                }
-                _ => {}
-            }
+            *camera = OrbitCamera::preset(version, preset);
             return;
         }
         if self.reset_requested {
-            *camera = OrbitCamera::new();
+            *camera = OrbitCamera::home(version);
             return;
         }
         if self.orbit_delta != Vec2::ZERO {

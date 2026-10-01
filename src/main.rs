@@ -25,10 +25,11 @@ use minifb::{Key, Window, WindowOptions};
 use camera::OrbitCamera;
 use input::InputState;
 use render::Renderer;
+use version::Version;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let enhanced = !args.iter().any(|arg| arg == "--original");
+    let version = Version::from_args(&args);
 
     if args.iter().any(|a| a == "--verify") {
         if !verify::run() {
@@ -38,7 +39,7 @@ fn main() {
     }
 
     if args.first().is_some_and(|a| a == "--sequence") {
-        export_sequence(&args[1..], enhanced);
+        export_sequence(&args[1..], version);
         return;
     }
 
@@ -52,15 +53,16 @@ fn main() {
         let pitch = args.get(index + 3).and_then(|s| s.parse::<f32>().ok());
         let distance = args.get(index + 4).and_then(|s| s.parse::<f32>().ok());
         let start = args.get(index + 5).and_then(|s| s.parse::<f32>().ok());
-        probe(frames, dump, pitch, distance, start, enhanced);
+        let yaw = args.get(index + 6).and_then(|s| s.parse::<f32>().ok());
+        probe(frames, dump, [pitch, distance, start, yaw], version);
         return;
     }
 
-    run(enhanced);
+    run(version);
 }
 
 /// Loop interactivo: ventana, input y presentacion.
-fn run(enhanced: bool) {
+fn run(mut version: Version) {
     let mut window = Window::new(
         config::WINDOW_TITLE,
         config::WINDOW_WIDTH,
@@ -73,13 +75,16 @@ fn run(enhanced: bool) {
     // 100% de un nucleo aunque el render sea trivial.
     window.set_target_fps(config::TARGET_FPS);
 
-    let mut camera = OrbitCamera::new();
+    let mut camera = OrbitCamera::home(version);
     let mut input = InputState::new();
     let mut renderer = Renderer::new(config::WINDOW_WIDTH, config::WINDOW_HEIGHT);
-    renderer.set_enhanced(enhanced);
+    renderer.set_version(version);
 
     let mut time = 0.0;
     let mut paused = false;
+    // Giro del anillo de la Endurance: acumula tiempo solo mientras gira.
+    let mut spinning = false;
+    let mut spin_time = 0.0;
     let mut previous_frame = Instant::now();
     let mut title_updated = Instant::now();
 
@@ -93,9 +98,23 @@ fn run(enhanced: bool) {
         previous_frame = Instant::now();
 
         input.poll(&window, dt);
-        input.apply_to(&mut camera);
+        input.apply_to(&mut camera, version);
         if window.is_key_pressed(Key::V, minifb::KeyRepeat::No) {
-            renderer.set_enhanced(!renderer.enhanced());
+            let next = version.next();
+            // La original y la variante comparten camara; la Endurance orbita
+            // otro objetivo, asi que entrar o salir de ella la reinicia.
+            if next == Version::Endurance || version == Version::Endurance {
+                camera = OrbitCamera::home(next);
+            }
+            version = next;
+            renderer.set_version(version);
+        }
+        let endurance = version == Version::Endurance;
+        if window.is_key_pressed(Key::G, minifb::KeyRepeat::No) && endurance {
+            spinning = !spinning;
+        }
+        if window.is_key_pressed(Key::B, minifb::KeyRepeat::No) && endurance {
+            renderer.toggle_letterbox();
         }
 
         if window.is_key_pressed(Key::Space, minifb::KeyRepeat::No) {
@@ -103,23 +122,31 @@ fn run(enhanced: bool) {
         }
         if !paused {
             time += elapsed;
+            if spinning && endurance {
+                spin_time += elapsed;
+            }
         }
+        renderer.set_ship_spin(spin_time * config::SHIP_SPIN_SPEED);
         if title_updated.elapsed().as_secs_f32() > 0.5 {
+            let views = if endurance {
+                "1 heroe 2 frente 3 cupula | G: girar | B: barras"
+            } else {
+                "1 cine 2 inclinada 3 arriba"
+            };
             window.set_title(&format!(
-                "{} | {:.0} FPS | V: {} | 1 cine 2 inclinada 3 arriba | Espacio: {}",
+                "{} | {:.0} FPS | V: {} | {views} | Espacio: {}",
                 config::WINDOW_TITLE,
                 1.0 / elapsed.max(0.001),
-                if renderer.enhanced() {
-                    "variante"
-                } else {
-                    "original"
-                },
+                version.label(),
                 if paused { "continuar" } else { "pausa" }
             ));
             title_updated = Instant::now();
         }
 
-        let frame = renderer.render(&camera, time, input.camera_moved());
+        // Mientras el anillo gira la vista cambia cada frame: se traza a la
+        // resolucion reducida del arrastre.
+        let moving = input.camera_moved() || (spinning && endurance && !paused);
+        let frame = renderer.render(&camera, time, moving);
 
         window
             .update_with_buffer(frame, config::WINDOW_WIDTH, config::WINDOW_HEIGHT)
@@ -129,10 +156,10 @@ fn run(enhanced: bool) {
 
 /// Secuencia reproducible sin ventana. Se puede convertir a GIF/video fuera
 /// del renderer sin agregar dependencias de codificacion al proyecto.
-fn export_sequence(args: &[String], enhanced: bool) {
+fn export_sequence(args: &[String], version: Version) {
     let Some(directory) = args.first() else {
         eprintln!(
-            "Uso: --sequence directorio [frames] [elevacion] [distancia] [tiempo] [ancho] [alto]"
+            "Uso: --sequence directorio [frames] [elevacion] [distancia] [tiempo] [ancho] [alto] [--endurance] [--spin]"
         );
         std::process::exit(2);
     };
@@ -143,24 +170,34 @@ fn export_sequence(args: &[String], enhanced: bool) {
             .unwrap_or(default)
     };
     let frames = number(1, 90.0).clamp(1.0, 1800.0) as usize;
-    let mut camera = OrbitCamera::new();
-    camera.pitch = number(2, config::CAMERA_PITCH.to_degrees())
+    let mut camera = OrbitCamera::home(version);
+    camera.pitch = number(2, camera.pitch.to_degrees())
         .to_radians()
         .clamp(-config::CAMERA_PITCH_LIMIT, config::CAMERA_PITCH_LIMIT);
-    camera.distance = number(3, config::CAMERA_DISTANCE)
-        .clamp(config::CAMERA_MIN_DISTANCE, config::CAMERA_MAX_DISTANCE);
+    camera.distance = number(3, camera.distance).clamp(camera.min_distance, camera.max_distance);
     let start = number(4, 0.0);
     let width = number(5, 960.0).clamp(32.0, 3840.0) as usize;
     let height = number(6, 540.0).clamp(32.0, 2160.0) as usize;
     std::fs::create_dir_all(directory).expect("no se pudo crear directorio de salida");
     let mut renderer = Renderer::new(width, height);
-    renderer.set_enhanced(enhanced);
+    renderer.set_version(version);
+    // Con --spin el anillo de la Endurance gira durante la secuencia. Cada
+    // frame es una vista nueva, pero sin ventana se traza a resolucion
+    // completa con sus dos muestras.
+    let spin = args.iter().any(|a| a == "--spin");
     // Preparar antialias antes del primer frame exportado.
     for _ in 0..config::SPATIAL_SAMPLES {
         renderer.render(&camera, start, false);
     }
     for i in 0..frames {
-        let frame = renderer.render(&camera, start + i as f32 / 30.0, false);
+        let time = start + i as f32 / 30.0;
+        if spin {
+            renderer.set_ship_spin(time * config::SHIP_SPIN_SPEED);
+            for _ in 1..config::SPATIAL_SAMPLES {
+                renderer.render(&camera, time, false);
+            }
+        }
+        let frame = renderer.render(&camera, time, false);
         let path = std::path::Path::new(directory).join(format!("frame-{i:04}.ppm"));
         write_ppm(path.to_str().expect("ruta UTF-8"), frame, width, height);
     }
@@ -178,6 +215,8 @@ fn export_sequence(args: &[String], enhanced: bool) {
 /// de canto quedan escondidos, porque ahi la estructura del gas se ve entera en
 /// vez de comprimida en una linea.
 ///
+/// El septimo, opcional, es el yaw de la camara en radianes.
+///
 /// El sexto es el instante inicial, en segundos. Sin el, el probe siempre mide
 /// los primeros 0.4 segundos de animacion, y hay defectos que solo aparecen mucho
 /// despues: el patron del gas se va deformando con el tiempo, asi que un render
@@ -190,22 +229,19 @@ fn export_sequence(args: &[String], enhanced: bool) {
 /// saturados dice cuanto se esta perdiendo en el recorte. Ajustar `EXPOSURE`,
 /// `DISK_BRIGHTNESS` y `BLOOM_INTENSITY` a ojo contra una ventana es mucho mas lento
 /// que mirar esos tres numeros.
-fn probe(
-    frames: usize,
-    dump: Option<String>,
-    pitch: Option<f32>,
-    distance: Option<f32>,
-    start: Option<f32>,
-    enhanced: bool,
-) {
+fn probe(frames: usize, dump: Option<String>, pose: [Option<f32>; 4], version: Version) {
+    let [pitch, distance, start, yaw] = pose;
     let start = start.unwrap_or(0.0);
     let (width, height) = (config::WINDOW_WIDTH, config::WINDOW_HEIGHT);
-    let mut camera = OrbitCamera::new();
+    let mut camera = OrbitCamera::home(version);
     if let Some(degrees) = pitch {
         camera.pitch = degrees.to_radians();
     }
     if let Some(radius) = distance {
         camera.distance = radius;
+    }
+    if let Some(angle) = yaw {
+        camera.yaw = angle;
     }
 
     println!(
@@ -225,7 +261,7 @@ fn probe(
         // Un renderer nuevo por modo: compartirlo arrastraria el historico de
         // acumulacion de un modo al otro y el primer frame saldria mezclado.
         let mut renderer = Renderer::new(width, height);
-        renderer.set_enhanced(enhanced);
+        renderer.set_version(version);
         let mut total = std::time::Duration::ZERO;
         let mut warm_total = std::time::Duration::ZERO;
         let mut warm_frames = 0;

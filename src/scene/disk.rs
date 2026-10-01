@@ -54,21 +54,14 @@ impl Medium {
     };
 }
 
+#[cfg(test)]
 pub fn prepare_volume(hit: Vec3, affine_step: f32, ray: RayFrame) -> Option<DiskSample> {
     prepare(hit, affine_step, ray, Medium::ORIGINAL)
 }
 
+#[cfg(test)]
 pub fn prepare_preview_volume(hit: Vec3, affine_step: f32, ray: RayFrame) -> Option<DiskSample> {
     prepare(hit, affine_step, ray, Medium::VARIANT)
-}
-
-/// Altura de la atmosfera de cada version, relativa al radio.
-pub fn atmosphere_height_ratio(enhanced: bool) -> f32 {
-    if enhanced {
-        Medium::VARIANT.atmosphere_ratio
-    } else {
-        Medium::ORIGINAL.atmosphere_ratio
-    }
 }
 
 /// Muestra del gas en `hit` para el tramo `affine_step` de una geodesica.

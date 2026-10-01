@@ -25,6 +25,10 @@ pub mod tonemap;
 use crate::camera::OrbitCamera;
 use crate::config;
 use crate::math::noise::NoiseTable;
+use crate::scene::{
+    disk::Medium, endurance, endurance::Ship, lighting::Lighting, skybox::Skybox, stars::SkyFrame,
+};
+use crate::version::Version;
 use bloom::BloomChain;
 use framebuffer::HdrBuffer;
 
@@ -46,7 +50,16 @@ pub struct Renderer {
     gas: crate::scene::disk::GasTexture,
     rays: raymarch::RayCache,
     previous_time: Option<f32>,
-    enhanced: bool,
+    version: Version,
+    /// El skybox se genera la primera vez que se usa: variante o Endurance.
+    skybox: Option<Skybox>,
+    /// Luz del entorno en la nave: se captura al entrar a la Endurance.
+    lighting: Option<Lighting>,
+    ship: Option<Ship>,
+    ship_spin: f32,
+    letterbox: bool,
+    /// Contador de frames para el grano de pelicula.
+    frame_index: u32,
 }
 
 impl Renderer {
@@ -68,7 +81,13 @@ impl Renderer {
             gas: crate::scene::disk::GasTexture::new(),
             rays: raymarch::RayCache::default(),
             previous_time: None,
-            enhanced: true,
+            version: Version::Variante,
+            skybox: None,
+            lighting: None,
+            ship: None,
+            ship_spin: 0.0,
+            letterbox: true,
+            frame_index: 0,
         }
     }
 
@@ -84,17 +103,49 @@ impl Renderer {
             config::RENDER_SCALE_IDLE
         };
         let history_reset = self.set_render_scale(target_scale);
+        let endurance = self.version == Version::Endurance;
+        let enhanced = self.version.enhanced();
 
-        if self.enhanced {
+        if enhanced {
             self.gas.update_preview(&self.noise, time);
+            if self.skybox.is_none() {
+                self.skybox = Some(Skybox::generate(&self.noise));
+            }
         } else {
             self.gas.update(&self.noise, time);
         }
+        if endurance {
+            self.prepare_endurance(time);
+        }
+        let observer = camera.position().length();
+        let render_height = self.frame.height();
         let scene = raymarch::SceneFrame {
             noise: &self.noise,
             gas: &self.gas,
-            enhanced: self.enhanced,
-            sky: crate::scene::stars::SkyFrame::new(time, camera.position().length()),
+            enhanced,
+            sky: if enhanced {
+                SkyFrame::galaxy(time, observer)
+            } else {
+                SkyFrame::new(time, observer)
+            },
+            skybox: if enhanced { self.skybox.as_ref() } else { None },
+            sky_gain: if endurance {
+                config::ENDURANCE_SKY_GAIN
+            } else {
+                config::VARIANT_SKY_GAIN
+            },
+            ship: if endurance { self.ship.as_ref() } else { None },
+            medium: match self.version {
+                Version::Original => Medium::ORIGINAL,
+                Version::Variante => Medium::VARIANT,
+                Version::Endurance => Medium::ENDURANCE,
+            },
+            pixel_angle: 2.0 * (camera.fov_y * 0.5).tan() / render_height as f32,
+            letterbox: endurance && self.letterbox,
+            tag: [
+                self.version.index(),
+                if endurance { self.ship_spin.to_bits() } else { 0 },
+            ],
         };
         let view_changed = self
             .rays
@@ -117,27 +168,87 @@ impl Renderer {
 
         // El umbral del bloom esta en fraccion del blanco de pantalla, asi que
         // hay que llevarlo al espacio del buffer dividiendo por la exposicion.
-        self.bloom
-            .process(&self.frame, config::BLOOM_THRESHOLD / config::EXPOSURE);
-        let bloom_intensity = if self.enhanced {
-            config::PREVIEW_BLOOM_INTENSITY
+        let exposure = if endurance {
+            config::ENDURANCE_EXPOSURE
         } else {
-            config::BLOOM_INTENSITY
+            config::EXPOSURE
+        };
+        self.bloom
+            .process(&self.frame, config::BLOOM_THRESHOLD / exposure);
+        let bloom_intensity = match self.version {
+            Version::Original => config::BLOOM_INTENSITY,
+            Version::Variante => config::PREVIEW_BLOOM_INTENSITY,
+            Version::Endurance => config::ENDURANCE_BLOOM_INTENSITY,
         };
         self.bloom.composite(&mut self.frame, bloom_intensity);
 
-        tonemap::apply(&mut self.frame, config::EXPOSURE, config::GAMMA);
+        if endurance {
+            self.bloom.composite_glare(&mut self.frame, config::GLARE_INTENSITY);
+            self.bloom.streaks(config::STREAK_THRESHOLD / exposure);
+            self.bloom
+                .composite_streaks(&mut self.frame, config::STREAK_INTENSITY);
+            self.frame_index = self.frame_index.wrapping_add(1);
+            tonemap::apply_film(
+                &mut self.frame,
+                exposure,
+                config::GAMMA,
+                self.letterbox,
+                self.frame_index,
+            );
+        } else {
+            tonemap::apply(&mut self.frame, exposure, config::GAMMA);
+        }
 
         self.frame
             .present_argb(self.window_width, self.window_height)
     }
 
-    pub fn set_enhanced(&mut self, enhanced: bool) {
-        self.enhanced = enhanced;
+    pub fn set_version(&mut self, version: Version) {
+        self.version = version;
     }
 
-    pub fn enhanced(&self) -> bool {
-        self.enhanced
+    /// Angulo del anillo de la nave. Cambiarlo invalida el cache de rayos.
+    pub fn set_ship_spin(&mut self, spin: f32) {
+        if spin != self.ship_spin {
+            self.ship_spin = spin;
+            self.ship = None;
+        }
+    }
+
+    pub fn toggle_letterbox(&mut self) {
+        self.letterbox = !self.letterbox;
+    }
+
+    /// La luz del entorno y la nave se construyen solo si se usan. Capturar
+    /// la luz traza unas dos mil geodesicas desde la nave, una sola vez: no
+    /// depende del giro del anillo.
+    fn prepare_endurance(&mut self, time: f32) {
+        if self.lighting.is_none() {
+            let capture = raymarch::SceneFrame {
+                noise: &self.noise,
+                gas: &self.gas,
+                enhanced: true,
+                sky: SkyFrame::new(time, endurance::ship_center().length()),
+                skybox: None,
+                sky_gain: 0.0,
+                ship: None,
+                medium: Medium::ENDURANCE,
+                pixel_angle: 0.0,
+                letterbox: false,
+                tag: [0, 0],
+            };
+            let samples = raymarch::capture_environment(
+                &capture,
+                endurance::ship_center(),
+                config::SHIP_LIGHT_SAMPLES,
+            );
+            self.lighting = Some(Lighting::from_samples(&samples));
+        }
+        if self.ship.is_none() {
+            if let Some(lighting) = &self.lighting {
+                self.ship = Some(Ship::new(self.ship_spin, lighting.clone()));
+            }
+        }
     }
 
     /// Cambia la resolucion interna, reasignando los buffers que dependen de ella.
