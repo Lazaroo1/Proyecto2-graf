@@ -16,28 +16,64 @@ pub struct DiskSample {
     pub optical_depth: f32,
 }
 
+/// Forma del gas de cada version: alturas de las capas relativas al radio,
+/// profundidad optica de la atmosfera y temperatura de color de pico.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Medium {
+    /// Gas filamentoso con envoltura gris (variante y Endurance).
+    pub enhanced: bool,
+    pub peak_temperature: f32,
+    pub atmosphere_ratio: f32,
+    pub atmosphere_depth: f32,
+    pub outer_ratio: f32,
+}
+
+impl Medium {
+    pub const ORIGINAL: Self = Self {
+        enhanced: false,
+        peak_temperature: config::DISK_TEMPERATURE_PEAK,
+        atmosphere_ratio: config::DISK_ATMOSPHERE_HEIGHT_RATIO,
+        atmosphere_depth: config::DISK_ATMOSPHERE_OPTICAL_DEPTH,
+        outer_ratio: config::OUTER_GAS_HEIGHT_RATIO,
+    };
+    pub const VARIANT: Self = Self {
+        enhanced: true,
+        peak_temperature: config::PREVIEW_DISK_TEMPERATURE,
+        atmosphere_ratio: config::PREVIEW_ATMOSPHERE_HEIGHT_RATIO,
+        atmosphere_depth: config::PREVIEW_ATMOSPHERE_OPTICAL_DEPTH,
+        outer_ratio: config::OUTER_GAS_HEIGHT_RATIO,
+    };
+    /// Mar de nubes mas compacto: la nave vuela rozando su tope y por encima
+    /// queda espacio despejado hacia la sombra, como en la pelicula.
+    pub const ENDURANCE: Self = Self {
+        enhanced: true,
+        peak_temperature: config::ENDURANCE_DISK_TEMPERATURE,
+        atmosphere_ratio: config::ENDURANCE_ATMOSPHERE_HEIGHT_RATIO,
+        atmosphere_depth: config::PREVIEW_ATMOSPHERE_OPTICAL_DEPTH,
+        outer_ratio: config::ENDURANCE_OUTER_GAS_HEIGHT_RATIO,
+    };
+}
+
 pub fn prepare_volume(hit: Vec3, affine_step: f32, ray: RayFrame) -> Option<DiskSample> {
-    prepare_medium(hit, affine_step, ray, false)
+    prepare(hit, affine_step, ray, Medium::ORIGINAL)
 }
 
 pub fn prepare_preview_volume(hit: Vec3, affine_step: f32, ray: RayFrame) -> Option<DiskSample> {
-    prepare_medium(hit, affine_step, ray, true)
+    prepare(hit, affine_step, ray, Medium::VARIANT)
 }
 
+/// Altura de la atmosfera de cada version, relativa al radio.
 pub fn atmosphere_height_ratio(enhanced: bool) -> f32 {
     if enhanced {
-        config::PREVIEW_ATMOSPHERE_HEIGHT_RATIO
+        Medium::VARIANT.atmosphere_ratio
     } else {
-        config::DISK_ATMOSPHERE_HEIGHT_RATIO
+        Medium::ORIGINAL.atmosphere_ratio
     }
 }
 
-fn prepare_medium(
-    hit: Vec3,
-    affine_step: f32,
-    ray: RayFrame,
-    enhanced: bool,
-) -> Option<DiskSample> {
+/// Muestra del gas en `hit` para el tramo `affine_step` de una geodesica.
+pub fn prepare(hit: Vec3, affine_step: f32, ray: RayFrame, medium: Medium) -> Option<DiskSample> {
+    let enhanced = medium.enhanced;
     let radius = Vec2::new(hit.x, hit.z).length();
     let outer_radius = if enhanced {
         config::OUTER_GAS_END
@@ -48,26 +84,18 @@ fn prepare_medium(
         return None;
     }
     let height = radius * config::DISK_HEIGHT_RATIO;
-    let atmosphere_height = radius * atmosphere_height_ratio(enhanced);
-    let atmosphere_depth = if enhanced {
-        config::PREVIEW_ATMOSPHERE_OPTICAL_DEPTH
-    } else {
-        config::DISK_ATMOSPHERE_OPTICAL_DEPTH
-    };
+    let atmosphere_height = radius * medium.atmosphere_ratio;
+    let atmosphere_depth = medium.atmosphere_depth;
     let z = hit.y / height;
     let atmosphere_z = hit.y / atmosphere_height;
-    let outer_height = radius * config::OUTER_GAS_HEIGHT_RATIO;
+    let outer_height = radius * medium.outer_ratio;
     let outer_z = hit.y / outer_height;
     if atmosphere_z.abs() > 3.5 && (!enhanced || outer_z.abs() > 3.5) {
         return None;
     }
     let emitted = relativity::disk_temperature(radius);
     let shift = relativity::redshift_factor(radius, ray.observer_radius, ray.lz_over_e);
-    let temperature_scale = if enhanced {
-        config::PREVIEW_DISK_TEMPERATURE / config::DISK_TEMPERATURE_PEAK
-    } else {
-        1.0
-    };
+    let temperature_scale = medium.peak_temperature / config::DISK_TEMPERATURE_PEAK;
     let observed = emitted * shift * temperature_scale;
     if observed <= 0.0 {
         return None;
