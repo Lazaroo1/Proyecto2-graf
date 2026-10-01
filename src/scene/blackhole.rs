@@ -47,6 +47,7 @@ pub struct Photon {
 
 impl Photon {
     /// Arranca un foton desde la camara, hacia atras en el tiempo.
+    #[inline(always)]
     pub fn from_camera(origin: Vec3, direction: Vec3) -> Self {
         // La camara mide angulos en un marco local ortonormal, no en las
         // coordenadas de Schwarzschild. Con energia local = 1, dr/dlambda
@@ -74,6 +75,12 @@ impl Photon {
     }
 
     /// Avanza un paso del parametro afin con Runge-Kutta de cuarto orden.
+    ///
+    /// Siempre en linea junto con `step_length`: asi el compilador reutiliza
+    /// la aceleracion del punto inicial, que ambas calculan, en vez de
+    /// evaluarla dos veces por paso. Con varios integradores llamandolas,
+    /// dejar la decision al compilador costaba un 25% del trazado.
+    #[inline(always)]
     pub fn advance(&mut self, dt: f32) {
         let h = self.h_sq;
         let (p0, v0) = (self.pos, self.vel);
@@ -95,6 +102,7 @@ impl Photon {
 
     /// Paso afin limitado por curvatura y por una fraccion del radio.
     /// El muestreo del volumen agrega su propio limite en raymarch::volume_step.
+    #[inline(always)]
     pub fn step_length(&self) -> f32 {
         let acceleration = relativity::geodesic_acceleration(self.pos, self.h_sq).length();
         let curvature = if acceleration > 1.0e-9 {
@@ -117,6 +125,7 @@ impl Photon {
     /// asi que una vez adentro y cayendo no existe punto de retorno posible. El
     /// resultado es exacto, no una heuristica, y ahorra las decenas de pasos que
     /// costaria seguir la espiral hasta el horizonte.
+    #[inline(always)]
     pub fn captured(&self) -> bool {
         if sdf::sd_sphere(self.pos, config::SCHWARZSCHILD_RADIUS) < 0.0 {
             return true;
@@ -125,11 +134,13 @@ impl Photon {
     }
 
     /// Si el foton ya se fue lo bastante lejos como para no volver.
+    #[inline(always)]
     pub fn escaped(&self) -> bool {
         self.pos.length() > config::ESCAPE_RADIUS && self.vel.dot(self.pos) > 0.0
     }
 
     /// Direccion asintotica del rayo, para muestrear el cielo de fondo.
+    #[inline(always)]
     pub fn direction(&self) -> Vec3 {
         self.vel.normalize_or_zero()
     }

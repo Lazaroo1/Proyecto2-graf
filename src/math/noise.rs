@@ -132,6 +132,7 @@ impl NoiseTable {
     /// sobre un eje fijo porque el llamador puede estar usando dos de las tres
     /// coordenadas para embeber un circulo: desplazar una de esas dos deformaria
     /// el circulo y reintroduciria la costura que el embebido evita.
+    #[inline(always)]
     pub fn fbm(&self, p: Vec3, drift: Vec3, octaves: u32) -> f32 {
         let mut sum = 0.0;
         let mut amplitude = 0.5;
