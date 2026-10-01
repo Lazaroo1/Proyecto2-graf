@@ -59,7 +59,9 @@ impl SampleMap {
 #[derive(Default)]
 pub struct RayCache {
     view: Option<[u32; 11]>,
-    samples: Vec<SampleMap>,
+    // Conservar las filas evita copiar todo el volumen a una segunda reserva
+    // contigua al terminar el trazado, que duplicaria su pico de memoria.
+    samples: Vec<Vec<SampleMap>>,
 }
 impl RayCache {
     pub fn render(
@@ -108,31 +110,16 @@ impl RayCache {
                     let ray = trace(projector.ray_for_pixel(x, y, offset), scene, &mut row.gas);
                     row.rays.push(ray);
                 }
+                row.gas.shrink_to_fit();
             });
-            let total: usize = rows.iter().map(|row| row.gas.len()).sum();
-            let mut map = SampleMap {
-                rays: Vec::with_capacity(width * height),
-                gas: Vec::with_capacity(total),
-            };
-            for mut row in rows {
-                let base = map.gas.len();
-                for ray in &mut row.rays {
-                    ray.start += base;
-                    ray.end += base;
-                }
-                map.rays.extend(row.rays);
-                map.gas.extend(row.gas);
-            }
-            self.samples.push(map);
+            self.samples.push(rows);
         }
         let count = self.samples.len() as f32;
-        const TILE: usize = 256;
-        parallel::chunks_mut(target.pixels_mut(), TILE, 4096, |tile, pixels| {
-            for (offset, pixel) in pixels.iter_mut().enumerate() {
-                let i = tile * TILE + offset;
+        parallel::chunks_mut(target.pixels_mut(), width, 4096, |y, pixels| {
+            for (x, pixel) in pixels.iter_mut().enumerate() {
                 let mut color = Vec3::ZERO;
                 for map in &self.samples {
-                    color += map.shade(i, scene);
+                    color += map[y].shade(x, scene);
                 }
                 color /= count;
                 let peak = color.max_element();
@@ -164,7 +151,7 @@ fn volume_step(photon: &Photon, enhanced: bool) -> f32 {
     // lejos de ambos medios conservar el paso de vacio de la geodesica.
     if enhanced {
         let thermal_distance = (radius - config::DISK_OUTER_RADIUS)
-            .max(photon.pos.y.abs() - 3.5 * radius * config::DISK_ATMOSPHERE_HEIGHT_RATIO);
+            .max(photon.pos.y.abs() - 3.5 * radius * disk::atmosphere_height_ratio(enhanced));
         if thermal_distance > 0.0 {
             let speed = photon.vel.length().max(1e-6);
             let height = radius * config::OUTER_GAS_HEIGHT_RATIO;
@@ -181,7 +168,7 @@ fn volume_step(photon: &Photon, enhanced: bool) -> f32 {
     }
     let height = radius * config::DISK_HEIGHT_RATIO;
     let speed = photon.vel.length().max(1e-6);
-    let atmosphere_height = radius * config::DISK_ATMOSPHERE_HEIGHT_RATIO;
+    let atmosphere_height = radius * disk::atmosphere_height_ratio(enhanced);
     let base = if photon.pos.y.abs() < atmosphere_height * 4.0 {
         base.min(config::DISK_VOLUME_STEP / speed)
             .min(atmosphere_height * 0.65 / photon.vel.y.abs().max(1e-6))
@@ -277,7 +264,8 @@ mod tests {
             .map(|(a, b)| (*a - *b).length())
             .sum();
         assert!(change > 0.1, "the sky is still frozen: {change}");
-        scene.enhanced = false;
+        gas.update(&noise, 2.0);
+        let scene = snapshot(&noise, &gas);
         assert!(cache.render(&mut buffer, &camera, &scene, false));
         assert_eq!(cache.samples.len(), 1);
     }

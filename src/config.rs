@@ -38,14 +38,20 @@ pub const THIN_DISK_PROFILE_PEAK: f32 = 0.487_872;
 pub const DISK_TEMPERATURE_PEAK: f32 = 7000.0;
 /// Variante de color: un poco mas calida, con el mismo g relativista.
 pub const PREVIEW_DISK_TEMPERATURE: f32 = 6500.0;
+/// Atmosfera de la variante: mas gas visible por encima de la fotosfera.
+pub const PREVIEW_ATMOSPHERE_HEIGHT_RATIO: f32 = 0.028;
+pub const PREVIEW_ATMOSPHERE_OPTICAL_DEPTH: f32 = 0.10;
 pub const DISK_BRIGHTNESS: f32 = 1.0;
 // Envoltura exterior tenue. Su fuente gris aproxima dispersion de luz;
 // no se presenta como emision termica de gas frio ni como GRMHD.
-pub const OUTER_GAS_START: f32 = 8.0;
-pub const OUTER_GAS_END: f32 = 15.0;
-pub const OUTER_GAS_HEIGHT_RATIO: f32 = 0.035;
-pub const OUTER_GAS_OPTICAL_DEPTH: f32 = 0.07;
-pub const OUTER_GAS_BRIGHTNESS: f32 = 0.11;
+pub const OUTER_GAS_START: f32 = 6.0;
+pub const OUTER_GAS_PEAK: f32 = 10.0;
+pub const OUTER_GAS_FADE: f32 = 12.0;
+pub const OUTER_GAS_END: f32 = 19.0;
+pub const OUTER_GAS_HEIGHT_RATIO: f32 = 0.028;
+pub const OUTER_GAS_OPTICAL_DEPTH: f32 = 0.30;
+pub const OUTER_GAS_BRIGHTNESS: f32 = 0.045;
+pub const OUTER_GAS_LIGHT_FALLOFF: f32 = 0.22;
 
 // Estructura procedural del plasma: no se resuelven ecuaciones MHD.
 pub const DISK_NOISE_SCALE: f32 = 1.5;
@@ -66,6 +72,16 @@ pub const DISK_ATMOSPHERE_OPTICAL_DEPTH: f32 = 0.035;
 pub const DISK_VOLUME_STEP: f32 = 0.22;
 pub const GAS_TEXTURE_WIDTH: usize = 512;
 pub const GAS_TEXTURE_HEIGHT: usize = 256;
+/// Campo cilindrico 3D de la variante: azimut, radio y altura.
+pub const PREVIEW_GAS_TEXTURE_WIDTH: usize = 384;
+pub const PREVIEW_GAS_TEXTURE_HEIGHT: usize = 192;
+pub const PREVIEW_GAS_TEXTURE_LAYERS: usize = 9;
+pub const PREVIEW_GAS_TURBULENCE_OCTAVES: u32 = 4;
+pub const PREVIEW_GAS_TURBULENCE_CONTRAST: f32 = 11.0;
+pub const PREVIEW_GAS_NOISE_ANGULAR: f32 = 3.2;
+pub const PREVIEW_GAS_NOISE_RADIAL: f32 = 1.3;
+/// Cizalla del patron con la altura, en radianes por altura de escala.
+pub const PREVIEW_GAS_VERTICAL_SHEAR: f32 = 0.18;
 
 // Fondo discreto, visible sin competir con el disco.
 pub const STAR_GRID: f32 = 900.0;
@@ -129,6 +145,7 @@ pub const BLOOM_BLUR_SIGMA: f32 = 2.0;
 pub const BLOOM_THRESHOLD: f32 = 0.6;
 pub const BLOOM_MIP_FALLOFF: f32 = 0.72;
 pub const BLOOM_INTENSITY: f32 = 0.38;
+pub const PREVIEW_BLOOM_INTENSITY: f32 = 0.24;
 pub const HDR_CEILING: f32 = 150.0;
 pub const EXPOSURE: f32 = 5.0;
 pub const GAMMA: f32 = 2.2;

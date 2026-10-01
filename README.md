@@ -47,10 +47,12 @@ tiempo de animación. El título de la ventana indica cuál está activa.
 
 | Característica | Original | Variante — predeterminada |
 | --- | --- | --- |
-| Disco | Plasma animado y contraste Doppler | Mismo modelo, con temperatura de color algo más cálida |
+| Disco | Plasma animado y contraste Doppler | Filamentos volumétricos, canales oscuros y temperatura de color algo más cálida |
 | Temperatura de color de pico, antes del corrimiento | 7000 K | 6500 K |
 | Estrellas | Fondo discreto y fijo respecto al mundo | Fondo más visible, con deriva angular a través de la lente |
-| Gas exterior | Atmósfera del disco térmico | Envoltura gris adicional que se desvanece entre 8 y 15 radios de Schwarzschild |
+| Gas exterior | Atmósfera del disco térmico | Transición de gas cálido a gris desde 6 radios de Schwarzschild; se oscurece y desaparece suavemente hasta 19 |
+| Textura del gas | Campo de 512×256 | Campo cilíndrico de 384×192×9, con variación en altura e interpolación trilineal |
+| Bloom | Intensidad 0.38 | Intensidad 0.24 para conservar detalle entre los filamentos |
 | Costo | Menor | Más muestras de gas y evaluación del cielo por frame |
 
 Las dos versiones comparten las geodésicas, el sentido de giro del plasma,
@@ -91,10 +93,15 @@ Cámara → geodésicas → emisión y absorción del gas → cielo de fondo
        → historial temporal corto → bloom → exposición y tonemap → ventana
 ```
 
-Las trayectorias y las muestras del volumen se guardan en una caché por vista.
+Las trayectorias y las muestras del volumen se guardan en una caché por vista,
+organizada por filas para evitar duplicar todo el gas durante su construcción.
 Con la cámara quieta se preparan dos muestras subpíxel y se vuelve a calcular
-su iluminación al tiempo actual. La textura del gas, de 512×256, se regenera
-en cada frame. En la variante también se actualiza el cielo.
+su iluminación al tiempo actual. El original regenera su textura de gas de
+512×256 en cada frame. La variante utiliza un volumen de 384×192×9: azimut,
+radio y altura. Dos campos de ruido se guardan durante su ciclo de vida;
+cada frame desplaza sus coordenadas con la velocidad orbital local y mezcla
+sus valores. El ruido se renueva cuando el campo correspondiente tiene peso
+cero. En la variante también se actualiza el cielo.
 
 Mover la cámara o cambiar de versión invalida la caché y el historial temporal.
 Durante el movimiento se reduce la resolución interna a una escala de 0.33;
@@ -292,41 +299,58 @@ $$
 q=\operatorname{clamp}\left(\frac{R-a}{b-a},0,1\right).
 $$
 
-Con alturas $H_c=0.004R$ y $H_a=0.035R$, el perfil de opacidad térmica es:
+El núcleo tiene altura $H_c=0.004R$. La atmósfera usa
+$(H_a,\tau_a)=(0.035R,0.035)$ en el original y $(0.028R,0.10)$ en la variante.
+El perfil de opacidad térmica es:
 
 $$
 W(R)=\mathcal S(3,3.24;R)\,[1-\mathcal S(7.5,13;R)],
 $$
 
 $$
-D_{\mathrm{th}}=W(R)\left[
+D_t=W(R)\left[
 \frac{8}{H_c}e^{-y^2/(2H_c^2)}+
-\frac{0.035}{H_a}e^{-y^2/(2H_a^2)}\right].
+\frac{\tau_a}{H_a}e^{-y^2/(2H_a^2)}\right].
 $$
 
-La variante añade una envoltura con $H_o=0.035R$:
+La variante añade una envoltura con $H_o=0.028R$:
 
 $$
-D_o=\frac{0.07}{H_o}\,
-\mathcal S(8,13;R)\,[1-\mathcal S(13,15;R)]\,e^{-y^2/(2H_o^2)},
+D_o=\frac{0.30}{H_o}\,
+\mathcal S(6,10;R)\,[1-\mathcal S(12,19;R)]\,e^{-y^2/(2H_o^2)}.
 $$
 
 $$
-S_o=0.11\,g^4(0.94,0.96,1.0)\,e^{-0.32\max(R-8,0)}.
+c_o=\mathcal S(6,13;R),\qquad
+\mathbf k_o=(1-c_o)(1,0.82,0.68)+c_o(0.94,0.96,1),
 $$
 
-Esta fuente gris aproxima luz dispersada que se atenúa hacia afuera. Los
-perfiles se truncan a 3.5 alturas de su atmósfera; el medio térmico termina
-en $R=13$ y la envoltura en $R=15$. En la versión original, $D_o=0$.
-
-La opacidad y la fuente combinadas son:
-
 $$
-D=D_{\mathrm{th}}+D_o,\qquad
-S=\frac{D_{\mathrm{th}}S_{\mathrm{th}}+D_oS_o}{D}.
+S_o=0.045\,g^4\mathbf k_o\,e^{-0.22\max(R-6,0)}.
 $$
 
-Se omiten muestras de densidad despreciable para evitar divisiones por cero.
+Esta fuente aproxima luz dispersada: pasa de cálida a gris y se atenúa
+hacia afuera. Los perfiles se truncan a 3.5 alturas de su atmósfera;
+el medio térmico termina en $R=13$ y la envoltura en $R=19$.
+
+En la periferia, una fracción del medio térmico usa también esa fuente gris.
+Esta mezcla conserva la opacidad total y hace gradual la transición del borde:
+
+$$
+f=\mathcal S(7.5,13;R),\qquad
+D_{\mathrm{th}}=(1-f)D_t,\qquad D_{\mathrm{gris}}=D_o+fD_t.
+$$
+
+En el original se usan $f=0$ y $D_o=0$. La opacidad y la fuente combinadas son:
+
+$$
+D=D_{\mathrm{th}}+D_{\mathrm{gris}},\qquad
+S=\frac{D_{\mathrm{th}}S_{\mathrm{th}}+D_{\mathrm{gris}}S_o}{D}.
+$$
+
+El enfriamiento visual y la luz dispersada son una aproximación de material,
+sin resolver el equilibrio térmico del gas. Se omiten muestras de densidad
+despreciable para evitar divisiones por cero.
 Implementación: [disco](src/scene/disk.rs).
 
 ### 7. Emisión, absorción y composición del volumen
@@ -364,12 +388,13 @@ Implementación: [disco](src/scene/disk.rs) y [raymarch](src/render/raymarch.rs)
 ### 8. Ruido, filamentos y movimiento del gas
 
 El ruido de valor $N(\mathbf q)\in[-1,1]$ interpola una tabla determinista
-usando el suavizado $f(a)=a^2(3-2a)$. La suma de cinco octavas es:
+usando el suavizado $f(a)=a^2(3-2a)$. Se suman $n=5$ octavas en el original
+y $n=4$ en la variante:
 
 $$
 \operatorname{fBm}(\mathbf q)=\frac12+\frac12
-\frac{\sum_{k=0}^{4}2^{-(k+1)}N(2^k\mathbf q)}
-{\sum_{k=0}^{4}2^{-(k+1)}}.
+\frac{\sum_{k=0}^{n-1}2^{-(k+1)}N(2^k\mathbf q)}
+{\sum_{k=0}^{n-1}2^{-(k+1)}}.
 $$
 
 El ángulo del disco se introduce como seno y coseno para evitar una costura
@@ -391,8 +416,23 @@ $$
 $$
 \phi_j=\phi+8\Omega(R)(p_j-0.5)P,\qquad
 F=w_aL_a+(1-w_a)L_b,\qquad
-m=1+0.96\left[e^{8(F-0.5)}-1\right].
+m=1+0.96\left[e^{\kappa(F-0.5)}-1\right],\qquad
+\kappa=\begin{cases}8&\text{original},\\11&\text{variante}.\end{cases}
 $$
+
+En la variante, la altura normalizada $h=y/(0.028R)$ modifica el dominio
+de ruido de cada campo:
+
+$$
+A=3.2+0.5h,\qquad \theta_j=\phi_j+0.18h,\qquad
+\mathbf q_j=1.5(A\cos\theta_j,\ A\sin\theta_j,\ 1.3R)+s_j(1,1,1).
+$$
+
+$s_j$ es la semilla espacial del campo durante su ciclo. Así el ruido cambia
+con la altura y forma filamentos con cizalla. La variante almacena cada campo
+en una rejilla cilíndrica, interpola el desplazamiento angular y consulta el
+volumen final mediante interpolación trilineal. El original consulta su campo
+mediante interpolación bilineal.
 
 Los campos se renuevan cuando su peso es cero, evitando reinicios visibles.
 La rotación depende del radio: las partes interiores se mueven más rápido.
@@ -451,7 +491,11 @@ separable, normalizado, de radio 4 y $\sigma=2$:
 
 $$
 K(i)=\frac{e^{-i^2/(2\sigma^2)}}{\sum_{j=-4}^{4}e^{-j^2/(2\sigma^2)}},\qquad
-C_b=C_h+0.38\sum_{k=0}^{5}\frac{0.72^k}{\sum_{j=0}^{5}0.72^j}B_k.
+C_b=C_h+\beta\sum_{k=0}^{5}\frac{0.72^k}{\sum_{j=0}^{5}0.72^j}B_k,
+$$
+
+$$
+\beta=\begin{cases}0.38&\text{original},\\0.24&\text{variante}.\end{cases}
 $$
 
 Aquí $B_k$ representa cada nivel ya desenfocado y reescalado. Finalmente:
@@ -492,11 +536,13 @@ cargo clippy --all-targets -- -D warnings
 cargo run --release -- --verify
 ```
 
-Las 22 pruebas cubren continuidad del ruido y del flujo, sentido de advección,
+Las 25 pruebas cubren continuidad del ruido y del flujo, sentido de advección,
 Doppler, integración de opacidad, conservación del color, caché, animación
-del cielo, rayos capturados y desvanecimiento del gas gris. También verifican
-la orientación y composición de las rotaciones propias, la normalización de
-vectores y el procesamiento paralelo, incluidos bloques incompletos, trabajos
+del cielo, rayos capturados y desvanecimiento del gas gris. Verifican el detalle
+vertical del volumen, su continuidad al renovar campos, saltar en el tiempo y
+alternar versiones. También cubren la orientación y composición de las rotaciones
+propias, la normalización de vectores y el procesamiento paralelo, incluidos
+bloques incompletos, trabajos
 anidados y finalización de los préstamos cuando hay un fallo en los hilos.
 
 La verificación analítica comprueba $b_c$, conservación de energía y momento
@@ -538,19 +584,19 @@ GIF o video exportado no son una medición del rendimiento interactivo.
 
 ## Rendimiento
 
-Medición local del 28 de septiembre de 2026 con `std` + `minifb`, en un
-Intel Core i5-12500H: 30 frames a 960×540, elevación de 2°, distancia de
-21.5 radios y tiempo inicial de 2 segundos, compilado con `--release`.
-
-| Medida | Original | Variante |
-| --- | --- | --- |
-| Cámara quieta, después de preparar la lente | 59.9 ms/frame · 16.7 FPS | 70.7 ms/frame · 14.1 FPS |
-| Arrastre real, promedio completo a escala 0.33 | 58.8 ms/frame · 17.0 FPS | 68.5 ms/frame · 14.6 FPS |
+`--probe` mide por separado el arrastre real a escala 0.33 y la cámara quieta
+a resolución completa. Informa tanto el promedio total como el promedio
+después de los primeros frames de preparación.
 
 Preparar las trayectorias cuesta más que sombrear una vista ya calculada y
-se repite al mover la cámara o cambiar de versión. Los resultados dependen
-del CPU, su temperatura, la resolución y la vista. La envoltura adicional
-y el cielo animado aumentan el costo de la variante.
+se repite al mover la cámara o cambiar de versión. La caché conserva dos muestras
+por píxel y su memoria crece con la resolución y la cantidad de gas atravesado.
+La variante reutiliza los campos de ruido y renueva uno cada 2.5 segundos de
+animación; esa renovación tiene un costo adicional en ese frame.
+
+Los resultados dependen del CPU, su temperatura, la memoria disponible,
+la resolución y la vista. El volumen con detalle vertical, la envoltura
+adicional y el cielo animado aumentan el costo de la variante.
 
 ## Alcance del modelo
 
@@ -575,7 +621,7 @@ y el cielo animado aumentan el costo de la variante.
 | [config.rs](src/config.rs) | Constantes físicas, apariencia de ambas versiones y cámara |
 | [camera.rs](src/camera.rs), [input.rs](src/input.rs) | Proyección, órbita, zoom y controles |
 | [relativity.rs](src/scene/relativity.rs), [blackhole.rs](src/scene/blackhole.rs) | Frecuencias, invariantes y geodésicas |
-| [disk.rs](src/scene/disk.rs) | Emisión, absorción y textura del gas |
+| [disk.rs](src/scene/disk.rs) | Emisión, absorción, enfriamiento exterior y campos de gas con advección |
 | [stars.rs](src/scene/stars.rs) | Cielo original y fondo animado de la variante |
 | [noise.rs](src/math/noise.rs) | Ruido continuo y fBm |
 | [vector.rs](src/math/vector.rs) | Vectores, matrices y operadores propios |

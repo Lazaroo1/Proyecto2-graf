@@ -119,8 +119,12 @@ impl Renderer {
         // hay que llevarlo al espacio del buffer dividiendo por la exposicion.
         self.bloom
             .process(&self.frame, config::BLOOM_THRESHOLD / config::EXPOSURE);
-        self.bloom
-            .composite(&mut self.frame, config::BLOOM_INTENSITY);
+        let bloom_intensity = if self.enhanced {
+            config::PREVIEW_BLOOM_INTENSITY
+        } else {
+            config::BLOOM_INTENSITY
+        };
+        self.bloom.composite(&mut self.frame, bloom_intensity);
 
         tonemap::apply(&mut self.frame, config::EXPOSURE, config::GAMMA);
 
