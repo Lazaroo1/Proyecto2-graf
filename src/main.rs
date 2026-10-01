@@ -43,13 +43,19 @@ fn main() {
         return;
     }
 
+    if args.first().is_some_and(|a| a == "--materials") {
+        export_materials(args.get(1).map_or("artifacts/materiales", |s| s.as_str()));
+        return;
+    }
+
     if let Some(index) = args.iter().position(|a| a == "--probe") {
         let frames = args
             .get(index + 1)
             .and_then(|s| s.parse::<usize>().ok())
             .unwrap_or(10)
             .max(1);
-        let dump = args.get(index + 2).cloned();
+        // Una bandera como `--endurance` no es un nombre de archivo de salida.
+        let dump = args.get(index + 2).filter(|a| !a.starts_with("--")).cloned();
         let pitch = args.get(index + 3).and_then(|s| s.parse::<f32>().ok());
         let distance = args.get(index + 4).and_then(|s| s.parse::<f32>().ok());
         let start = args.get(index + 5).and_then(|s| s.parse::<f32>().ok());
@@ -200,6 +206,62 @@ fn export_sequence(args: &[String], version: Version) {
         let frame = renderer.render(&camera, time, false);
         let path = std::path::Path::new(directory).join(format!("frame-{i:04}.ppm"));
         write_ppm(path.to_str().expect("ruta UTF-8"), frame, width, height);
+    }
+}
+
+/// Muestra plana de la textura de cada material, con sus parametros.
+///
+/// Es la evidencia de que cada material tiene su propia textura: se guarda un
+/// PPM por material y se imprime la tabla de albedo, specular, transparencia,
+/// reflectividad e indice de refraccion.
+fn export_materials(directory: &str) {
+    use math::{noise::NoiseTable, Vec2, Vec3};
+    use scene::material::{Region, MATERIALS};
+    std::fs::create_dir_all(directory).expect("no se pudo crear directorio de salida");
+    let noise = NoiseTable::new(config::NOISE_SEED);
+    let size = 256;
+    println!("material                 albedo              spec  transp  reflect  ior");
+    for (index, material) in MATERIALS.iter().enumerate() {
+        let a = material.albedo;
+        println!(
+            "{:<24} ({:.2}, {:.2}, {:.2})  {:.2}  {:.2}    {:.2}     {:.2}",
+            material.name,
+            a.x,
+            a.y,
+            a.z,
+            material.specular,
+            material.transparency,
+            material.reflectivity,
+            material.ior
+        );
+        // La cupula se muestrea en radianes; la tobera, de la garganta a la
+        // boca; las demas, en unidades locales de la nave.
+        let extent = match index {
+            3 => std::f32::consts::PI,
+            5 => 1.0,
+            _ => 0.5,
+        };
+        let region = Region::Plain;
+        let pixels: Vec<u32> = (0..size * size)
+            .map(|i| {
+                let uv = Vec2::new((i % size) as f32, (i / size) as f32) * (extent / size as f32);
+                let s = material.sample(&noise, uv, region, extent / size as f32);
+                // El vidrio se ve sobre un fondo oscuro segun su transparencia.
+                let color = s.albedo * (1.0 - 0.85 * material.transparency * s.transparency)
+                    + material.emission * s.emission * 0.15;
+                let shown = (color * (1.0 / (1.0 + color.max_element()))).max(Vec3::ZERO) * 1.6;
+                let channel = |x: f32| ((x.min(1.0).powf(1.0 / 2.2)) * 255.0) as u32;
+                (channel(shown.x) << 16) | (channel(shown.y) << 8) | channel(shown.z)
+            })
+            .collect();
+        let slug: String = material
+            .name
+            .to_lowercase()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let path = std::path::Path::new(directory).join(format!("{}-{slug}.ppm", index + 1));
+        write_ppm(path.to_str().expect("ruta UTF-8"), &pixels, size, size);
     }
 }
 
