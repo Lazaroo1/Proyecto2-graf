@@ -15,13 +15,17 @@ rebotan en la nave siguen siendo geodésicas: el casco refleja el disco ya
 deformado por la lente.
 
 Todo el render se calcula en CPU con código propio y la biblioteca estándar
-de Rust. `minifb` se utiliza para la ventana, la entrada y la presentación del
-buffer de píxeles. El disco, las estrellas, el skybox y las texturas se generan
-durante la ejecución, sin imágenes ni GIFs usados como fondo.
+de Rust, sin librerías externas de cálculo, gráficos ni imágenes. La única
+dependencia es `minifb`, autorizada por el profesor Pablo Koch, que se usa para
+la ventana, la entrada y la presentación del buffer de píxeles. El disco, las
+estrellas, el skybox y las texturas se generan durante la ejecución, sin
+imágenes ni GIFs usados como fondo.
 
 ## Dependencias
 
-La única dependencia directa es `minifb`, que gestiona la ventana y la entrada:
+La única dependencia directa es `minifb`, autorizada por el profesor Pablo
+Koch. Solo gestiona la ventana, la entrada y la presentación del buffer de
+píxeles; todo lo demás está escrito en el proyecto:
 
 ```toml
 [dependencies]
@@ -34,8 +38,9 @@ minifb = "0.28"
   `std::thread`, canales y sincronización de `std::sync`. Cada bloque tiene
   un único escritor y todos los trabajos de una etapa terminan antes de
   pasar a la siguiente. Los bloques pequeños se procesan en el hilo llamador.
-- Geodésicas, ruido, gas, cielo, bloom, tonemap y exportación PPM también
-  se implementan en el proyecto, sin librerías externas de cálculo o render.
+- Geodésicas, ruido, gas, cielo, skybox, la nave con sus materiales, bloom,
+  tonemap y exportación PPM también se implementan en el proyecto, sin
+  librerías externas de cálculo o render.
 
 Para consultar las dependencias directas:
 
@@ -59,7 +64,7 @@ ventana indica la versión activa y sus teclas.
 | Disco | Plasma animado y contraste Doppler | Filamentos volumétricos, canales oscuros y temperatura de color algo más cálida | El gas de la variante, en un mar de nubes más compacto y de color crema |
 | Temperatura de color de pico, antes del corrimiento | 7000 K | 6500 K | 5200 K |
 | Fondo | Estrellas discretas, fijas respecto al mundo | Skybox con la Vía Láctea y tres capas de estrellas, con deriva angular a través de la lente | El mismo skybox |
-| Gas exterior | Atmósfera del disco térmico | Transición de gas cálido a gris desde 6 radios de Schwarzschild; se oscurece y desaparece suavemente hasta 19 | Igual que la variante, con capas de la mitad de altura |
+| Gas exterior | Atmósfera del disco térmico | Transición de gas cálido a gris desde 6 radios de Schwarzschild; se oscurece y desaparece suavemente hasta 19 | Como en la variante, con capas más delgadas |
 | Textura del gas | Campo de 512×256 | Campo cilíndrico de 384×192×9, con variación en altura e interpolación trilineal | Igual que la variante |
 | Superficies | — | — | Seis materiales con reflexión y refracción |
 | Presentación | Bloom 0.38 y tonemap que conserva el color | Bloom 0.24 | Curva de película, destellos anamórficos, velo de lente, viñeta, grano y barras 2.39:1 |
@@ -102,6 +107,20 @@ cargo run --release -- --endurance
 El skybox se genera al iniciar la variante o la Endurance, y la luz del
 entorno de la nave al entrar a la Endurance. Cada uno tarda una fracción de
 segundo.
+
+## Rúbrica
+
+Cómo cubre el proyecto cada criterio de evaluación y dónde verlo.
+
+| Criterio | Puntos | Cómo se cumple | Dónde verlo |
+| --- | --- | --- | --- |
+| Complejidad de la escena | 30 | Trazado de rayos sobre geodésicas de Schwarzschild integradas con RK4; gas volumétrico animado con Doppler y corrimiento gravitacional; nave con SDF de dieciséis tipos de piezas; reflexión y refracción como geodésicas, con hasta tres rebotes guardados en caché; luz del entorno capturada con geodésicas y armónicos esféricos; sombras suaves, oclusión ambiental y texturas con nivel de detalle; render en paralelo con hilos propios | Versión Endurance; [raymarch.rs](src/render/raymarch.rs), [endurance.rs](src/scene/endurance.rs) |
+| Atractivo visual | 20 | Composición tomada de la escena de *Interstellar* en que la Endurance roza el disco; disco crema de 5200 K, curva de película, destellos anamórficos, velo de lente, viñeta, grano, barras 2.39:1 y ventanas iluminadas en los módulos | Vistas `1`, `2` y `3` de la Endurance |
+| Rotación del diorama y zoom | 20 | La cámara orbita la nave con el mouse o W/A/S/D y se acerca o aleja con la rueda o las flechas, de 0.045 a 12 rs. `G` hace girar el anillo de la nave | [camera.rs](src/camera.rs), [input.rs](src/input.rs), [main.rs](src/main.rs) |
+| Materiales | 5 c/u, máx. 25 | Seis materiales, cada uno con su propia textura procedural y sus propios albedo, specular, transparencia y reflectividad, además de rugosidad, índice de refracción, metalicidad y emisión | [material.rs](src/scene/material.rs), tabla de [materiales](#materiales), `--materials` |
+| Refracción | 10 | Cúpula de observación de vidrio ($n=1.5$) sobre el tablero de instrumentos del núcleo: ley de Snell al entrar y al salir, reflexión total interna y absorción del vidrio. A través de ella se ven las luces del tablero desplazadas | Vista `3` de la Endurance; `through_glass` en [endurance.rs](src/scene/endurance.rs) |
+| Reflexión | 5 | Aislante dorado, aluminio desnudo, mantas plateadas, paneles solares, nervios de la cúpula y vidrio por Fresnel. Los rayos reflejados se integran como geodésicas, así que el casco refleja el disco deformado por la lente | Vistas `2` y `3` de la Endurance; `shade_hit` en [raymarch.rs](src/render/raymarch.rs) |
+| Skybox | 20 | Cubemap de seis caras de 768×768 con la Vía Láctea, franjas de polvo, regiones HII y nebulosas, generado al iniciar y deformado por la lente | Variante y Endurance; [skybox.rs](src/scene/skybox.rs) |
 
 ## Cómo se forma la imagen
 
@@ -306,12 +325,12 @@ La fuente térmica RGB utilizada en el volumen es:
 $$
 S_{\mathrm{th}}=P(sgT_{\mathrm{em}})
 \left(\frac{gT_{\mathrm{em}}}{7000\,\mathrm K}\right)^4,\qquad
-s=\begin{cases}1&\text{original},\\6500/7000&\text{variante}.\end{cases}
+s=\begin{cases}1&\text{original},\\6500/7000&\text{variante},\\5200/7000&\text{Endurance}.\end{cases}
 $$
 
-El ajuste de la variante cambia la temperatura de color conservando la
-normalización de brillo. Esta es una representación RGB aproximada, no una
-integración espectral completa de la ley de Planck.
+El ajuste de la variante y de la Endurance cambia la temperatura de color
+conservando la normalización de brillo. Esta es una representación RGB
+aproximada, no una integración espectral completa de la ley de Planck.
 
 ### 6. Espesor del disco y gas gris exterior
 
@@ -323,7 +342,8 @@ q=\operatorname{clamp}\left(\frac{R-a}{b-a},0,1\right).
 $$
 
 El núcleo tiene altura $H_c=0.004R$. La atmósfera usa
-$(H_a,\tau_a)=(0.035R,0.035)$ en el original y $(0.028R,0.10)$ en la variante.
+$(H_a,\tau_a)=(0.035R,0.035)$ en el original, $(0.028R,0.10)$ en la variante y
+$(0.012R,0.10)$ en la Endurance.
 El perfil de opacidad térmica es:
 
 $$
@@ -336,7 +356,7 @@ D_t=W(R)\left[
 \frac{\tau_a}{H_a}e^{-y^2/(2H_a^2)}\right].
 $$
 
-La variante añade una envoltura con $H_o=0.028R$:
+La variante añade una envoltura con $H_o=0.028R$ ($0.014R$ en la Endurance):
 
 $$
 D_o=\frac{0.30}{H_o}\,
@@ -443,8 +463,8 @@ m=1+0.96\left[e^{\kappa(F-0.5)}-1\right],\qquad
 \kappa=\begin{cases}8&\text{original},\\11&\text{variante}.\end{cases}
 $$
 
-En la variante, la altura normalizada $h=y/(0.028R)$ modifica el dominio
-de ruido de cada campo:
+En la variante, la altura normalizada $h=y/H_o$ modifica el dominio de ruido
+de cada campo:
 
 $$
 A=3.2+0.5h,\qquad \theta_j=\phi_j+0.18h,\qquad
@@ -460,14 +480,15 @@ mediante interpolación bilineal.
 Los campos se renuevan cuando su peso es cero, evitando reinicios visibles.
 La rotación depende del radio: las partes interiores se mueven más rápido.
 El factor 8 acelera el tiempo de animación; el Doppler sigue usando
-la velocidad orbital del modelo físico.
+la velocidad orbital del modelo físico. La Endurance usa los mismos campos de
+gas que la variante.
 
 Implementación: [ruido](src/math/noise.rs) y [textura del disco](src/scene/disk.rs).
 
 ### 9. Estrellas y movimiento aparente del entorno
 
 El cielo se consulta con la dirección de salida de la geodésica,
-$\mathbf d_{\mathrm{esc}}$. En la variante se transforma con:
+$\mathbf d_{\mathrm{esc}}$. En la variante y en la Endurance se transforma con:
 
 $$
 \mathbf d_{\mathrm{cielo}}(t)=
@@ -476,7 +497,9 @@ $$
 
 Los ángulos están en radianes. Esta deriva angular representa movimiento
 relativo del fondo, mientras la métrica del agujero permanece estática.
-El estiramiento de las estrellas procede del mapa de geodésicas.
+El estiramiento de las estrellas procede del mapa de geodésicas. El skybox se
+consulta con esa misma dirección, así que la Vía Láctea deriva junto con las
+estrellas.
 
 Cada estrella tiene un perfil $B_\star=B_0\eta^3e^{-(d/s_\star)^2}$,
 donde $d$ es la distancia al centro de su celda, $s_\star$ su tamaño y
@@ -518,7 +541,7 @@ C_b=C_h+\beta\sum_{k=0}^{5}\frac{0.72^k}{\sum_{j=0}^{5}0.72^j}B_k,
 $$
 
 $$
-\beta=\begin{cases}0.38&\text{original},\\0.24&\text{variante}.\end{cases}
+\beta=\begin{cases}0.38&\text{original},\\0.24&\text{variante},\\0.20&\text{Endurance}.\end{cases}
 $$
 
 Aquí $B_k$ representa cada nivel ya desenfocado y reescalado. Finalmente:
@@ -531,7 +554,9 @@ $$
 
 La división usa un factor común para RGB, preservando las proporciones
 de color antes de aplicar gamma. El halo y la exposición representan la
-presentación de la cámara; no modifican las trayectorias de luz.
+presentación de la cámara; no modifican las trayectorias de luz. La Endurance
+expone 1.3 en lugar de 5, así que su umbral de bloom es $0.6/1.3$, y usa la
+curva de película descrita en su sección.
 
 Implementación: [historial](src/render/accumulate.rs), [bloom](src/render/bloom.rs)
 y [tonemap](src/render/tonemap.rs).
@@ -548,6 +573,8 @@ $$
 $\delta>0$ acerca la cámara. La entrada de rueda se limita a 2.5 pasos por
 frame; el zoom por teclado también limita el tiempo de frame usado en su
 cálculo. Esto evita saltos grandes al comenzar a acercarse o alejarse.
+Alrededor de la nave, el exponente es $0.11\delta$ y el rango va de 0.045 a
+12 rs.
 
 Implementación: [cámara](src/camera.rs) y [entrada](src/input.rs).
 
@@ -567,18 +594,6 @@ En esta versión el gas es más compacto que en la variante (atmósfera de altur
 $0.012R$ y envoltura de $0.014R$, en vez de $0.028R$): por encima del tope de
 las nubes queda espacio despejado y la sombra se ve oscura. El disco usa una
 temperatura de color de pico de 5200 K.
-
-### Rúbrica: dónde está cada punto
-
-| Criterio | Implementación | Dónde verlo |
-| --- | --- | --- |
-| Rotación del diorama y zoom | La cámara orbita la nave con el mouse o W/A/S/D y se acerca o aleja con la rueda o las flechas, de 12 rs a 0.045 rs. `G` hace girar el anillo, como la gravedad artificial de la película | [camera.rs](src/camera.rs), [input.rs](src/input.rs), [main.rs](src/main.rs) |
-| Materiales (seis; cinco cuentan) | Cada uno con textura procedural propia y parámetros propios de albedo, specular, transparencia, reflectividad, rugosidad, índice de refracción, metalicidad y emisión | [material.rs](src/scene/material.rs), tabla siguiente, `--materials` |
-| Refracción con sentido | Cúpula de observación de vidrio sobre el tablero de instrumentos del núcleo: Snell al entrar y al salir, reflexión total interna y absorción del vidrio. A través de ella se ven las luces del tablero desplazadas | [endurance.rs](src/scene/endurance.rs) (`through_glass`), [raymarch.rs](src/render/raymarch.rs), vista `3` |
-| Reflexión | Aislante dorado, aluminio desnudo, mantas plateadas, paneles solares, nervios de la cúpula y el vidrio por Fresnel. Los rayos reflejados se integran como geodésicas | [raymarch.rs](src/render/raymarch.rs) (`shade_hit`), vistas `2` y `3` |
-| Skybox | Cubemap de seis caras de 768×768 generado al iniciar: Vía Láctea con bulbo, franjas de polvo, regiones HII y nebulosas. La banda se curva alrededor de la sombra. También es el fondo de la variante | [skybox.rs](src/scene/skybox.rs), variante |
-| Complejidad | Geodésicas con RK4, gas volumétrico animado, nave con SDF, luz del entorno capturada con geodésicas, armónicos esféricos, rebotes recursivos guardados en caché, sombras suaves, oclusión ambiental, nivel de detalle de texturas y pipeline de película | Toda esta sección |
-| Atractivo visual | Composición tomada de la película, curva de película, destellos anamórficos, velo de lente, viñeta, grano, barras 2.39:1 y ventanas iluminadas en los módulos | Vistas `1`, `2` y `3` |
 
 ### Materiales
 
@@ -768,8 +783,8 @@ del cielo, rayos capturados y desvanecimiento del gas gris. Verifican el detalle
 vertical del volumen, su continuidad al renovar campos, saltar en el tiempo y
 alternar versiones. También cubren la orientación y composición de las rotaciones
 propias, la normalización de vectores y el procesamiento paralelo, incluidos
-bloques incompletos, trabajos
-anidados y finalización de los préstamos cuando hay un fallo en los hilos.
+bloques incompletos, trabajos anidados y finalización de los préstamos cuando
+hay un fallo en los hilos.
 
 Otras 18 pruebas, 43 en total, cubren la Endurance:
 - **Versiones y materiales:** el ciclo de `V` por las tres versiones, y que los
