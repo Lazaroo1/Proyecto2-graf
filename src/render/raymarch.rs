@@ -22,6 +22,16 @@ pub struct SceneFrame<'a> {
     pub enhanced: bool,
 }
 
+/// Filas visibles entre las barras de cine, para un buffer `width x height`.
+pub fn visible_rows(width: usize, height: usize, letterbox: bool) -> std::ops::Range<usize> {
+    if !letterbox {
+        return 0..height;
+    }
+    let visible = ((width as f32 / config::LETTERBOX_ASPECT).round() as usize).min(height);
+    let top = (height - visible) / 2;
+    top..top + visible
+}
+
 #[derive(Clone, Copy, Default)]
 struct RaySpan {
     start: usize,
