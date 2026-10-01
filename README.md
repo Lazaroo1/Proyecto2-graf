@@ -7,10 +7,17 @@ en la apariencia de Gargantua. La lente gravitacional se obtiene integrando
 trayectorias de luz; el plasma es un volumen procedural con rotación diferencial,
 emisión y absorción. El color incorpora Doppler y corrimiento gravitacional.
 
+La tercera versión, **Endurance**, recrea la toma de *Interstellar* en que la
+nave, diminuta, pasa rozando el disco de Gargantua: seis materiales con
+textura propia, reflexión, refracción, un skybox con la Vía Láctea, luz del
+entorno capturada con geodésicas y una presentación de película. Los rayos que
+rebotan en la nave siguen siendo geodésicas: el casco refleja el disco ya
+deformado por la lente.
+
 Todo el render se calcula en CPU con código propio y la biblioteca estándar
 de Rust. `minifb` se utiliza para la ventana, la entrada y la presentación del
-buffer de píxeles. El disco y las estrellas se generan durante la ejecución,
-sin imágenes ni GIFs usados como fondo.
+buffer de píxeles. El disco, las estrellas, el skybox y las texturas se generan
+durante la ejecución, sin imágenes ni GIFs usados como fondo.
 
 ## Dependencias
 
@@ -39,23 +46,26 @@ cargo tree --depth 1 --edges normal
 `Cargo.lock` registra las dependencias transitivas que utiliza `minifb` para
 su integración con las plataformas.
 
-## Dos versiones con `V`
+## Tres versiones con `V`
 
-El proyecto incluye las versiones original y variante.
-**`V` alterna entre ellas durante la ejecución**, manteniendo la cámara y el
-tiempo de animación. El título de la ventana indica cuál está activa.
+**`V` recorre las versiones original → variante → Endurance** durante la
+ejecución. La original y la variante comparten cámara; al entrar o salir de la
+Endurance la cámara cambia de objetivo, del agujero a la nave. El título de la
+ventana indica la versión activa y sus teclas.
 
-| Característica | Original | Variante — predeterminada |
-| --- | --- | --- |
-| Disco | Plasma animado y contraste Doppler | Filamentos volumétricos, canales oscuros y temperatura de color algo más cálida |
-| Temperatura de color de pico, antes del corrimiento | 7000 K | 6500 K |
-| Estrellas | Fondo discreto y fijo respecto al mundo | Fondo más visible, con deriva angular a través de la lente |
-| Gas exterior | Atmósfera del disco térmico | Transición de gas cálido a gris desde 6 radios de Schwarzschild; se oscurece y desaparece suavemente hasta 19 |
-| Textura del gas | Campo de 512×256 | Campo cilíndrico de 384×192×9, con variación en altura e interpolación trilineal |
-| Bloom | Intensidad 0.38 | Intensidad 0.24 para conservar detalle entre los filamentos |
-| Costo | Menor | Más muestras de gas y evaluación del cielo por frame |
+| Característica | Original | Variante — predeterminada | Endurance |
+| --- | --- | --- | --- |
+| Escena | Agujero y disco | Agujero y disco | La nave Endurance rozando el disco de Gargantua |
+| Disco | Plasma animado y contraste Doppler | Filamentos volumétricos, canales oscuros y temperatura de color algo más cálida | El gas de la variante, en un mar de nubes más compacto y de color crema |
+| Temperatura de color de pico, antes del corrimiento | 7000 K | 6500 K | 5200 K |
+| Fondo | Estrellas discretas, fijas respecto al mundo | Skybox con la Vía Láctea y tres capas de estrellas, con deriva angular a través de la lente | El mismo skybox |
+| Gas exterior | Atmósfera del disco térmico | Transición de gas cálido a gris desde 6 radios de Schwarzschild; se oscurece y desaparece suavemente hasta 19 | Igual que la variante, con capas de la mitad de altura |
+| Textura del gas | Campo de 512×256 | Campo cilíndrico de 384×192×9, con variación en altura e interpolación trilineal | Igual que la variante |
+| Superficies | — | — | Seis materiales con reflexión y refracción |
+| Presentación | Bloom 0.38 y tonemap que conserva el color | Bloom 0.24 | Curva de película, destellos anamórficos, velo de lente, viñeta, grano y barras 2.39:1 |
+| Costo | Menor | Más muestras de gas y evaluación del cielo por frame | Menor que la variante: las barras ahorran filas y los rayos atraviesan menos gas |
 
-Las dos versiones comparten las geodésicas, el sentido de giro del plasma,
+Las tres versiones comparten las geodésicas, el sentido de giro del plasma,
 el zoom suave y los controles. La versión original también deforma las estrellas
 al cambiar la cámara; la deriva del fondo de la variante permite apreciar ese
 efecto incluso con la cámara quieta.
@@ -68,29 +78,42 @@ Requiere Rust y Cargo, además de un entorno gráfico para abrir la ventana.
 cargo run --release
 ```
 
-Para iniciar con la versión original:
+Para iniciar con la versión original o con la Endurance:
 
 ```sh
 cargo run --release -- --original
+cargo run --release -- --endurance
 ```
 
 | Acción | Control |
 | --- | --- |
-| Alternar original / variante | V |
-| Orbitar | Arrastrar con el mouse o W/A/S/D |
+| Cambiar de versión: original → variante → Endurance | V |
+| Orbitar alrededor del agujero, o de la nave en la Endurance | Arrastrar con el mouse o W/A/S/D |
 | Acercar / alejar | Rueda o flechas arriba/abajo |
-| Vista de canto, cinematográfica | 1 |
-| Vista inclinada a 30° | 2 |
-| Vista casi polar, 87° | 3 |
-| Pausar / continuar gas y estrellas | Espacio |
+| Vista 1 — agujero: de canto, cinematográfica · Endurance: la nave diminuta rozando el disco, como en la película | 1 |
+| Vista 2 — agujero: inclinada a 30° · Endurance: la nave desde abajo, iluminada por las nubes, contra el arco de Gargantua | 2 |
+| Vista 3 — agujero: casi polar, 87° · Endurance: primer plano de la cúpula, con el anillo de fotones detrás | 3 |
+| Girar el anillo de la nave (Endurance) | G |
+| Quitar / poner las barras de cine (Endurance) | B |
+| Pausar / continuar gas, estrellas y giro | Espacio |
 | Restablecer cámara | R |
 | Salir | Esc |
+
+El skybox se genera al iniciar la variante o la Endurance, y la luz del
+entorno de la nave al entrar a la Endurance. Cada uno tarda una fracción de
+segundo.
 
 ## Cómo se forma la imagen
 
 ```text
 Cámara → geodésicas → emisión y absorción del gas → cielo de fondo
        → historial temporal corto → bloom → exposición y tonemap → ventana
+
+Endurance: luz del entorno capturada con geodésicas desde la nave (una vez)
+           geodésica → ¿cuerda toca la nave? → material, luz del entorno,
+           sombras → rebotes de reflexión y refracción (nuevas geodésicas)
+           → skybox → bloom, velo y destello anamórfico → curva de película
+           → barras
 ```
 
 Las trayectorias y las muestras del volumen se guardan en una caché por vista,
@@ -528,6 +551,207 @@ cálculo. Esto evita saltos grandes al comenzar a acercarse o alejarse.
 
 Implementación: [cámara](src/camera.rs) y [entrada](src/input.rs).
 
+## Versión Endurance
+
+La nave vuela a 7.6 radios de Schwarzschild del eje, a 0.3 rs sobre el plano
+del disco, rozando el tope del mar de nubes y en dirección al agujero. Su
+anillo mide 0.02 rs: la nave es diminuta frente a Gargantua, como en la toma
+de la película en que la Endurance pasa sobre el disco. El zoom va de 3 rs a
+0.045 rs de la nave, unas 70 veces, para ver desde el conjunto hasta los
+detalles del casco. La cámara no baja de 0.08 rs sobre el plano: más abajo
+entraría al gas opaco.
+
+En esta versión el gas es más compacto que en la variante (atmósfera de altura
+$0.012R$ y envoltura de $0.014R$, en vez de $0.028R$): por encima del tope de
+las nubes queda espacio despejado y la sombra se ve oscura. El disco usa una
+temperatura de color de pico de 5200 K.
+
+### Rúbrica: dónde está cada punto
+
+| Criterio | Implementación | Dónde verlo |
+| --- | --- | --- |
+| Rotación del diorama y zoom | La cámara orbita la nave con el mouse o W/A/S/D y se acerca o aleja con la rueda o las flechas, de 3 rs a 0.045 rs. `G` hace girar el anillo, como la gravedad artificial de la película | [camera.rs](src/camera.rs), [input.rs](src/input.rs), [main.rs](src/main.rs) |
+| Materiales (seis; cinco cuentan) | Cada uno con textura procedural propia y parámetros propios de albedo, specular, transparencia, reflectividad, rugosidad, índice de refracción, metalicidad y emisión | [material.rs](src/scene/material.rs), tabla siguiente, `--materials` |
+| Refracción con sentido | Cúpula de observación de vidrio sobre el tablero de instrumentos del núcleo: Snell al entrar y al salir, reflexión total interna y absorción del vidrio. A través de ella se ven las luces del tablero desplazadas | [endurance.rs](src/scene/endurance.rs) (`through_glass`), [raymarch.rs](src/render/raymarch.rs), vista `3` |
+| Reflexión | Aislante dorado, aluminio desnudo, mantas plateadas, paneles solares, nervios de la cúpula y el vidrio por Fresnel. Los rayos reflejados se integran como geodésicas | [raymarch.rs](src/render/raymarch.rs) (`shade_hit`), vistas `2` y `3` |
+| Skybox | Cubemap de seis caras de 768×768 generado al iniciar: Vía Láctea con bulbo, franjas de polvo, regiones HII y nebulosas. La banda se curva alrededor de la sombra. También es el fondo de la variante | [skybox.rs](src/scene/skybox.rs), variante |
+| Complejidad | Geodésicas con RK4, gas volumétrico animado, nave con SDF, luz del entorno capturada con geodésicas, armónicos esféricos, rebotes recursivos guardados en caché, sombras suaves, oclusión ambiental, nivel de detalle de texturas y pipeline de película | Toda esta sección |
+| Atractivo visual | Composición tomada de la película, curva de película, destellos anamórficos, velo de lente, viñeta, grano, barras 2.39:1 y ventanas iluminadas en los módulos | Vistas `1`, `2` y `3` |
+
+### Materiales
+
+| Material | Textura procedural | Albedo | Specular | Rugosidad | Transparencia | Reflectividad $F_0$ | $n$ | Metal | Emisión | Dónde está |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Casco de aluminio pintado | Paneles de largo irregular: pintura térmica, aluminio desnudo, pintura gris, mantas plateadas acolchadas y mantas negras de kapton; juntas, hollín y ventanas | (0.60, 0.60, 0.58) | 0.5 | 0.42 | 0 | 0.06 | — | 0 | Ventanas de las cabinas | Módulos, túneles, radios, tanques, equipos y lomo del Ranger |
+| Aislante dorado | Lámina multicapa arrugada con cintas de unión | (1.00, 0.76, 0.34) | 1.0 | 0.20 | 0 | 0.85 | — | 1 | — | Banda de los módulos habitables |
+| Panel solar | Celdas con barras colectoras y separaciones claras, bajo vidrio | (0.03, 0.05, 0.14) | 1.0 | 0.06 | 0 | 0.05 | — | 0 | — | Alas de los módulos de energía |
+| Vidrio de la cúpula | Nervios metálicos y manchas leves | (0.92, 0.96, 1.00) | 1.0 | 0.02 | 0.92 | 0.04 | 1.5 | 0 | — | Cúpula de observación |
+| Losetas térmicas | Losetas negras con reemplazos claros; tablero con luces de estado | (0.055, 0.055, 0.06) | 0.3 | 0.70 | 0 | 0.03 | — | 0 | Luces del tablero | Núcleo, tablero bajo la cúpula y panza del Ranger |
+| Tobera del motor | Metal oxidado por calor: paja, bronce, púrpura y azul | (0.30, 0.26, 0.23) | 0.8 | 0.32 | 0 | 0.60 | — | 0.85 | Plasma del escape | Dos toberas por módulo de motor |
+
+La textura no es un tinte fijo: en cada punto decide el albedo, la rugosidad,
+la metalicidad, el brillo especular, la reflectividad, la transparencia, la
+emisión y una altura cuyo gradiente inclina la normal (relieve). La mezcla de
+pintura, metal desnudo y mantas del casco es lo que da el aspecto de nave real:
+los metales reflejan el cielo negro arriba y el disco abajo.
+
+Cada textura recibe el tamaño del píxel en el punto de impacto,
+$\ell=\text{distancia}\cdot\theta_{\text{píxel}}$, y apaga los detalles más
+chicos que medio píxel con $\mathcal S(0.25,2;\text{tamaño}/\ell)$,
+reemplazándolos por su promedio. Así una nave lejana no parpadea y una cercana
+muestra cada junta. Para exportar una muestra de cada textura e imprimir la
+tabla de parámetros:
+
+```sh
+cargo run --release -- --materials artifacts/materiales
+```
+
+### Geometría y trazado de la nave
+
+La nave se describe con funciones de distancia con signo en un marco local
+donde el anillo mide 1 y el eje Y apunta en la dirección de vuelo:
+
+- Doce módulos (cajas con bordes redondeados) de tres tipos: habitables con
+  aislante dorado, ventanas y caja de equipo; de motor con dos toberas y dos
+  tanques de propelente; y de energía con un ala de paneles solares sobre un
+  mástil. Todos llevan dos tuberías por la cara interior.
+- Túneles cilíndricos con brida entre módulos, cuatro radios dobles hacia el
+  núcleo, el núcleo con dos bridas y el collar de acople.
+- La cúpula de vidrio atrás del núcleo y el transbordador Ranger acoplado
+  adelante: fuselaje con nariz en punta, alas delta y deriva, como cajas
+  recortadas por planos.
+
+Módulos, túneles y radios se evalúan por repetición angular: solo la celda
+propia y la vecina. Cada región (anillo, radios y núcleo) tiene además una cota
+inferior de distancia en el plano $(R,y)$: si ya hay algo más cerca, la región
+no se evalúa. Una prueba verifica que esas cotas nunca sobreestimen la
+distancia.
+
+Dentro de la esfera envolvente de la nave, cada paso de la geodésica se trata
+como una cuerda recta $\mathbf a\to\mathbf b$ y se recorre con sphere tracing:
+
+$$
+t_{k+1}=t_k+d\big(\mathbf a+t_k\hat{\mathbf u}\big),\qquad
+\text{impacto si } d<2.5\times10^{-4}\ \text{(unidades locales)} .
+$$
+
+La nave mide centésimas de rs, cerca del límite de precisión de un `f32` a
+8 rs del agujero. Por eso la marcha se hace en coordenadas relativas a su
+centro: la resta grande se hace una vez por cuerda y después los números son
+del tamaño de la nave. La normal es el gradiente de $d$ con cuatro muestras en
+tetraedro.
+
+### Luz del entorno
+
+La luz no se coloca a mano. Al entrar a la versión se trazan 2048 geodésicas
+desde el centro de la nave en direcciones de Fibonacci, con el mismo
+integrador, el mismo gas y el mismo Doppler que la cámara. El resultado es lo
+que vería un observador en la nave: el mar de nubes debajo, el lado del disco
+que se acerca y su imagen curvada sobre la sombra. Esas radiancias $L_i$ se
+dividen en dos partes:
+
+- **Luces clave**: las muestras se agrupan en 48 zonas y las tres más
+  brillantes se vuelven luces direccionales, con irradiancia
+  $\mathbf E_k=\sum_{i\in k}L_i\,\Delta\omega$ y un tamaño angular sacado de
+  la concentración de sus direcciones, que fija la penumbra de su sombra.
+- **Armónicos esféricos de orden 2** con el resto (Ramamoorthi y Hanrahan):
+
+$$
+c_{lm}=\sum_i L_i\,Y_{lm}(\hat{\boldsymbol\omega}_i)\,\Delta\omega,\qquad
+\mathbf E(\mathbf n)=\sum_{l\le2,\,m}\hat A_l\,c_{lm}\,Y_{lm}(\mathbf n),\qquad
+\hat A_0=\pi,\ \hat A_1=\tfrac{2\pi}{3},\ \hat A_2=\tfrac{\pi}{4}.
+$$
+
+Con una luz uniforme $L$ esto da exactamente $\mathbf E=\pi L$ para cualquier
+normal, y una prueba lo verifica. El sombreado combina difuso, brillos de
+microfacetas GGX y el reflejo borroso de las superficies rugosas:
+
+$$
+\mathbf L=\mathbf L_e
++k_d\,\frac{\boldsymbol\rho}{\pi}\Big(\mathbf E(\mathbf n)\,A+\sum_k \mathbf E_k\,(\mathbf n\cdot\mathbf l_k)\,V_k\Big)
++s\sum_k \mathbf E_k V_k\,\frac{D\,G\,\mathbf F}{4\,(\mathbf n\cdot\mathbf v)}
++\mathbf F_v\,\mathcal S(0.12,0.55;r)\,\frac{\mathbf E_{\text{total}}(\mathbf r)}{\pi}\,A ,
+$$
+
+$$
+D=\frac{\alpha^2}{\pi\big((\mathbf n\cdot\mathbf h)^2(\alpha^2-1)+1\big)^2},\qquad
+\alpha=r^2,\qquad
+G=G_1(\mathbf n\cdot\mathbf v)\,G_1(\mathbf n\cdot\mathbf l),\quad
+G_1(x)=\frac{x}{x(1-k)+k},\quad k=\frac{(r+1)^2}{8}.
+$$
+
+$r$ es la rugosidad, ensanchada por el tamaño angular de cada luz para que las
+superficies lisas no generen brillos imposiblemente chicos, y $s$ el specular
+del material. La visibilidad $V_k$ es una sombra suave por marcha de
+distancias, $V=\mathcal S\big(\min_j \kappa h_j/t_j\big)$, y la oclusión
+ambiental $A=1-3.2\sum_{i=1}^{5}0.62^{\,i-1}\big(h_i-d(\mathbf p+h_i\mathbf n)\big)$.
+El relieve inclina la normal en el plano tangente:
+$\mathbf n'=\operatorname{normalize}\big(\mathbf n-s(\partial_u h\,\mathbf t_u+\partial_v h\,\mathbf t_v)\big)$.
+
+### Reflexión y refracción
+
+$$
+\mathbf r=\mathbf d-2(\mathbf d\cdot\mathbf n)\mathbf n,\qquad
+\mathbf t=\eta\,\mathbf d+\big(\eta\cos\theta_i-\cos\theta_t\big)\mathbf n,\qquad
+\cos\theta_t=\sqrt{1-\eta^2(1-\cos^2\theta_i)} .
+$$
+
+Si la raíz es imaginaria hay reflexión total interna. La reflectancia sigue
+la aproximación de Schlick y reparte la energía entre los tres caminos:
+
+$$
+\mathbf F_v=\boldsymbol\tau\big(F_0+(1-F_0)(1-\cos\theta_i)^5\big),\qquad
+k_r=\max\mathbf F_v,\quad k_t=(1-k_r)\,T,\quad k_d=(1-k_r)(1-T)(1-m).
+$$
+
+En los metales ($m=1$) el reflejo toma el tono del albedo, $\boldsymbol\tau$.
+Dentro del vidrio la luz se atenúa según Beer-Lambert,
+$\mathbf A=e^{-\boldsymbol\sigma\ell}$ con $\boldsymbol\sigma=(0.9,0.35,0.25)$
+por unidad local, lo que tiñe de cian los bordes gruesos. El color final de un
+impacto es:
+
+$$
+\mathbf C=\mathbf C_{\text{local}}+\mathbf F_v\big(1-\mathcal S(0.12,0.55;r)\big)\,\mathbf C(\mathbf r)+k_t\,\mathbf A\,\mathbf C(\mathbf t).
+$$
+
+Se siguen hasta tres rebotes. Los rayos hijos se guardan en la caché junto con
+sus muestras de gas y se vuelven a sombrear en cada frame: con la cámara
+quieta, el reflejo del disco en el casco sigue animado.
+
+### Skybox
+
+Cada texel del cubemap se llena una sola vez con la dirección de su centro. La
+cara es el eje dominante y las coordenadas son las otras dos componentes
+divididas por él. El cielo se describe en coordenadas galácticas,
+$b=\arcsin(\hat{\mathbf d}\cdot\mathbf P)$ y
+$l=\operatorname{atan2}(\hat{\mathbf d}\cdot\mathbf S,\hat{\mathbf d}\cdot\mathbf C)$:
+una banda $e^{-((b-w(l))/\sigma(l))^2}$ que ondula y se ensancha hacia el bulbo,
+nubes de fBm con deformación de dominio, franjas de polvo oscuro, regiones HII
+rosadas y nebulosas tenues. El bulbo queda arriba a la izquierda de la vista de
+la variante, y la lente dobla la banda en un arco alrededor de la sombra. Los
+texels se guardan en RGBE de 32 bits: tres mantisas de 8 bits y un exponente
+común, como el formato de Radiance. Las estrellas puntuales se evalúan aparte,
+por rayo, para que sigan nítidas.
+
+### Presentación de película
+
+La curva ACES de Narkowicz, $f(x)=\frac{x(2.51x+0.03)}{x(2.43x+0.59)+0.14}$,
+se aplica al canal máximo para conservar el tono del disco. Solo los brillos
+extremos se mezclan con $f$ por canal y se vuelven blancos, y la saturación
+baja a 0.72, como en una emulsión:
+
+$$
+\mathbf C=\operatorname{lerp}\Big(\mathbf C_e\frac{f(M)}{M},\;f(\mathbf C_e),\;0.75\,\mathcal S\big(0.7,1;f(M)\big)\Big),
+\qquad M=\max(\mathbf C_e).
+$$
+
+Después hay un viraje leve (sombras hacia el cian), un velo de lente con los
+dos niveles más anchos del bloom, viñeta, grano por frame y barras 2.39:1. Las
+filas detrás de las barras no se trazan. El destello anamórfico estira
+horizontalmente los puntos más brillantes con un filtro exponencial en ambos
+sentidos, de costo lineal: $y_n=a\,y_{n-1}+x_n$, con $a=e^{-1/(0.12W)}$ y
+normalizado por $(1-a)/(1+a)$.
+
 ## Validación y capturas
 
 ```sh
@@ -544,6 +768,22 @@ alternar versiones. También cubren la orientación y composición de las rotaci
 propias, la normalización de vectores y el procesamiento paralelo, incluidos
 bloques incompletos, trabajos
 anidados y finalización de los préstamos cuando hay un fallo en los hilos.
+
+Otras 17 pruebas, 42 en total, cubren la Endurance:
+- **Versiones y materiales:** el ciclo de `V` por las tres versiones, y que los
+  seis materiales tengan parámetros válidos y texturas distintas, que varían de
+  cerca y se aquietan de lejos.
+- **Óptica:** la reflexión, la ley de Snell, la reflexión total interna, los
+  límites de Fresnel y la normalización de la distribución GGX.
+- **Nave:** que la geometría quepa en su esfera envolvente con todas sus piezas,
+  que las cotas por región nunca sobreestimen la distancia, que los rayos peguen
+  en la nave y produzcan reflejos, y que la luz que entra a la cúpula llegue al
+  tablero. También que la nave vuele sobre el gas y que la cámara no baje a él.
+- **Luz del entorno:** que un cielo uniforme dé $\pi L$ desde cualquier lado y
+  que un piso luminoso ilumine desde abajo y se vuelva una luz clave.
+- **Cielo y presentación:** la ida y vuelta del cubemap, la precisión del RGBE,
+  la continuidad del cielo entre caras, la curva de película y las barras de
+  cine.
 
 La verificación analítica comprueba $b_c$, conservación de energía y momento
 angular, la órbita de fotones en $r=1.5$ y la deflexión en campo débil:
@@ -565,7 +805,14 @@ cargo run --release -- --probe 30 original.ppm 2 21.5 2 --original
 ```
 
 Argumentos de `--probe`: frames, salida PPM, elevación en grados, distancia
-en radios de Schwarzschild y tiempo inicial en segundos.
+en radios de Schwarzschild, tiempo inicial en segundos y, opcionalmente, el
+yaw de la cámara en radianes. Con `--endurance` la distancia se mide desde la
+nave:
+
+```sh
+cargo run --release -- --probe 12 heroe.ppm --endurance
+cargo run --release -- --probe 12 desde-abajo.ppm -14 0.17 0 1.0 --endurance
+```
 
 Para exportar una secuencia a 30 muestras por segundo o una captura individual:
 
@@ -575,8 +822,13 @@ cargo run --release -- --sequence artifacts/captura 1 30 36 2 1920 1080
 ```
 
 Argumentos de `--sequence`: directorio, frames, elevación, distancia, tiempo
-inicial, ancho y alto. Se puede añadir `--original` al final para usar la otra
-versión. El directorio de salida se crea automáticamente.
+inicial, ancho y alto. Se puede añadir `--original` o `--endurance` al final
+para elegir la versión, y `--spin` para que el anillo de la Endurance gire
+durante la secuencia. El directorio de salida se crea automáticamente.
+
+```sh
+cargo run --release -- --sequence artifacts/endurance 150 -12 0.075 0 1920 1080 --endurance --spin
+```
 
 Los PPM contienen el render sin compresión. Las exportaciones locales en
 `artifacts/` se excluyen de Git. Los FPS de reproducción de un
@@ -598,6 +850,19 @@ Los resultados dependen del CPU, su temperatura, la memoria disponible,
 la resolución y la vista. El volumen con detalle vertical, la envoltura
 adicional y el cielo animado aumentan el costo de la variante.
 
+En la Endurance, los rayos que pegan en la nave lanzan rebotes y sombras, y
+eso encarece la preparación de la vista. Las barras de cine ahorran una cuarta
+parte de las filas, y el gas compacto deja menos muestras por rayo. Por eso,
+una vez preparada la vista, su costo por frame es menor que el de la variante.
+En un i5-12500H (16 hilos), la vista `1` mantiene unos 25 FPS quieta y 40 FPS
+al arrastrar; la vista `2`, unos 32 y 35 FPS. Mientras el anillo gira con `G`,
+la vista cambia en cada frame y se traza a la escala reducida del arrastre.
+La variante conserva unos 10 FPS quieta y 17 al arrastrar con su fondo nuevo.
+
+La versión original conserva el rendimiento y la imagen que tenía antes de
+agregar la Endurance, píxel por píxel: el integrador se compila en dos copias,
+y la que no conoce la nave no carga con la recursión de los rebotes.
+
 ## Alcance del modelo
 
 - El agujero es Schwarzschild: no gira ni produce arrastre de marcos. El
@@ -612,30 +877,47 @@ adicional y el cielo animado aumentan el costo de la variante.
   entre caminos de luz, polarización ni retroacción del gas sobre la métrica.
 - La deriva de las estrellas no simula la traslación relativista del agujero.
   El modelo de color óptico tampoco reproduce las observaciones de radio del EHT.
+- La escala de la Endurance es cinematográfica, no física. Dentro de su esfera
+  envolvente los rayos se aproximan por cuerdas rectas; la curvatura en ese
+  tramo desplaza el impacto en mucho menos que el tamaño de un panel.
+- La luz del entorno se captura una vez, en el centro de la nave y con el gas
+  de ese instante: no varía de un extremo a otro de la nave ni sigue la
+  turbulencia. Tres luces clave y armónicos de orden 2 la resumen; los reflejos
+  de las superficies lisas sí son rayos completos. Dentro del vidrio, la luz
+  viaja en línea recta.
+- La nave queda fija en la caché de rayos. Al girar el anillo se vuelve a
+  trazar la vista; no se interpola entre posiciones.
 
 ## Estructura del proyecto
 
 | Archivo | Responsabilidad |
 | --- | --- |
-| [main.rs](src/main.rs) | Ventana, cambio con V, pausa, benchmark y exportación |
-| [config.rs](src/config.rs) | Constantes físicas, apariencia de ambas versiones y cámara |
-| [camera.rs](src/camera.rs), [input.rs](src/input.rs) | Proyección, órbita, zoom y controles |
+| [main.rs](src/main.rs) | Ventana, cambio con V, giro con G, pausa, benchmark y exportación |
+| [version.rs](src/version.rs) | Las tres versiones y su orden |
+| [config.rs](src/config.rs) | Constantes físicas, apariencia de las tres versiones, nave y cámara |
+| [camera.rs](src/camera.rs), [input.rs](src/input.rs) | Proyección, órbita, zoom, vistas por versión y controles |
 | [relativity.rs](src/scene/relativity.rs), [blackhole.rs](src/scene/blackhole.rs) | Frecuencias, invariantes y geodésicas |
-| [disk.rs](src/scene/disk.rs) | Emisión, absorción, enfriamiento exterior y campos de gas con advección |
-| [stars.rs](src/scene/stars.rs) | Cielo original y fondo animado de la variante |
+| [disk.rs](src/scene/disk.rs) | Forma del gas de cada versión, emisión, absorción, enfriamiento exterior y campos de gas con advección |
+| [stars.rs](src/scene/stars.rs) | Cielo original y fondo animado de la variante y la Endurance |
+| [skybox.rs](src/scene/skybox.rs) | Cubemap de la Vía Láctea en RGBE |
+| [endurance.rs](src/scene/endurance.rs) | Geometría SDF de la nave, sombreado, sombras y vidrio |
+| [material.rs](src/scene/material.rs) | Los seis materiales, sus texturas con nivel de detalle, Snell, Fresnel, GGX y reflexión |
+| [lighting.rs](src/scene/lighting.rs) | Luz del entorno de la nave: luces clave y armónicos esféricos |
 | [noise.rs](src/math/noise.rs) | Ruido continuo y fBm |
 | [vector.rs](src/math/vector.rs) | Vectores, matrices y operadores propios |
 | [parallel.rs](src/parallel.rs) | Reparto de bloques con hilos de Rust estándar |
-| [raymarch.rs](src/render/raymarch.rs) | Muestreo del volumen y caché de trayectorias |
+| [raymarch.rs](src/render/raymarch.rs) | Muestreo del volumen, caché de trayectorias, impactos, rebotes y captura de la luz del entorno |
 | [render/mod.rs](src/render/mod.rs) | Selección de versión y etapas del render |
-| [accumulate.rs](src/render/accumulate.rs), [bloom.rs](src/render/bloom.rs), [tonemap.rs](src/render/tonemap.rs) | Historial, halo y presentación HDR |
+| [accumulate.rs](src/render/accumulate.rs), [bloom.rs](src/render/bloom.rs), [tonemap.rs](src/render/tonemap.rs) | Historial, halo, velo de lente, destello anamórfico y presentación HDR y de película |
 | [framebuffer.rs](src/render/framebuffer.rs) | Buffers, reescalado y presentación |
 | [verify.rs](src/verify.rs) | Comprobaciones analíticas |
 
 Los parámetros `PREVIEW_*`, `OUTER_GAS_*` y `SKY_DRIFT_SPEED` controlan
-la variante actual. La selección pasa por `Renderer::set_enhanced` y forma
-parte de la clave de caché; esto permite comparar cambios visuales con el
-modo original sin mezclar muestras o imágenes de ambas versiones.
+la variante; los `SHIP_*`, `ENDURANCE_*`, `SKYBOX_*`, `FILM_*`, `GLARE_*` y
+`STREAK_*`, la Endurance. Las alturas del gas de cada versión se agrupan en
+`disk::Medium`. La selección pasa por `Renderer::set_version` y forma parte de
+la clave de caché, junto con el giro de la nave; esto permite comparar cambios
+visuales sin mezclar muestras o imágenes de distintas versiones.
 
 ## Referencias
 
