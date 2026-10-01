@@ -13,6 +13,7 @@
 
 pub mod blackhole;
 pub mod disk;
+pub mod endurance;
 pub mod lighting;
 pub mod material;
 pub mod relativity;
