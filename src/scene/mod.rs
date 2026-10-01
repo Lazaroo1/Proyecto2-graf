@@ -14,4 +14,5 @@
 pub mod blackhole;
 pub mod disk;
 pub mod relativity;
+pub mod skybox;
 pub mod stars;

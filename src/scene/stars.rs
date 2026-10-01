@@ -52,6 +52,8 @@ use crate::scene::relativity;
 pub struct SkyFrame {
     rotation: Mat3,
     blueshift: f32,
+    /// Capa extra de estrellas finas, junto al skybox.
+    dense: bool,
 }
 
 impl SkyFrame {
@@ -62,34 +64,68 @@ impl SkyFrame {
                 * Mat3::from_rotation_y(angle)
                 * Mat3::from_rotation_z(-0.23),
             blueshift: relativity::blueshift_from_infinity(observer_radius),
+            dense: false,
         }
     }
 
+    /// Cielo con Via Lactea (variante y Endurance): el mismo campo con una
+    /// capa de estrellas finas que acompana al skybox.
+    pub fn galaxy(time: f32, observer_radius: f32) -> Self {
+        Self {
+            dense: true,
+            ..Self::new(time, observer_radius)
+        }
+    }
+
+    /// Direccion de escape llevada al marco del cielo, que deriva lentamente.
+    pub fn rotate(&self, escape_direction: Vec3) -> Vec3 {
+        self.rotation * escape_direction
+    }
+
+    /// Factor `g^4` del observador sobre la luz que llega del infinito.
+    pub fn intensity_shift(&self) -> f32 {
+        self.blueshift.powi(4)
+    }
+
+    #[inline(always)]
     pub fn sample(&self, escape_direction: Vec3) -> Vec3 {
         if escape_direction == Vec3::ZERO {
             return Vec3::ZERO;
         }
         let direction = self.rotation * escape_direction;
-        let mut color = Vec3::ZERO;
         // Dos escalas: puntos pequenos y unas pocas estrellas que sirven de
         // referencias para seguir el estiramiento. Nada gira en torno a la
         // sombra a mano; ese movimiento sale del mapa de rayos.
-        for (scale, density, size, brightness, seed) in [
-            (
-                config::PREVIEW_STAR_GRID,
-                config::PREVIEW_STAR_DENSITY,
-                config::PREVIEW_STAR_SIZE,
-                config::PREVIEW_STAR_BRIGHTNESS,
-                0,
-            ),
-            (72.0, 0.10, 0.075, 0.45, 917),
-        ] {
+        let mut color = self.layers(
+            direction,
+            [
+                (
+                    config::PREVIEW_STAR_GRID,
+                    config::PREVIEW_STAR_DENSITY,
+                    config::PREVIEW_STAR_SIZE,
+                    config::PREVIEW_STAR_BRIGHTNESS,
+                    0,
+                ),
+                (72.0, 0.10, 0.075, 0.45, 917),
+            ],
+        );
+        if self.dense {
+            color += self.layers(direction, [(620.0, 0.07, 0.12, 0.16, 433)]);
+        }
+        color * self.blueshift.powi(4)
+    }
+
+    /// Capas de tamano fijo: el compilador las desenrolla con sus constantes.
+    #[inline(always)]
+    fn layers<const N: usize>(&self, direction: Vec3, layers: [(f32, f32, f32, f32, u32); N]) -> Vec3 {
+        let mut color = Vec3::ZERO;
+        for (scale, density, size, brightness, seed) in layers {
             if let Some(star) = star_layer(direction, scale, density, size, brightness, seed) {
                 color +=
                     blackbody::planckian_rgb(star.temperature * self.blueshift) * star.brightness;
             }
         }
-        color * self.blueshift.powi(4)
+        color
     }
 }
 
