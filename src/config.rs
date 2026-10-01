@@ -151,3 +151,76 @@ pub const EXPOSURE: f32 = 5.0;
 pub const GAMMA: f32 = 2.2;
 pub const NOISE_TABLE_SIZE: usize = 256;
 pub const NOISE_SEED: u32 = 0x9E37_79B9;
+
+// --- Version Endurance -------------------------------------------------------
+// Escala cinematografica: la nave real mide decenas de metros y Gargantua
+// millones de kilometros. Aca el anillo mide dos centesimas de rs: la nave es
+// diminuta frente al agujero, como en la pelicula, y el zoom permite acercarse
+// hasta ver sus detalles.
+
+/// Posicion de la nave: radio horizontal, altura sobre el disco y azimut.
+/// A 0.3 rs del plano vuela rozando la bruma del gas.
+pub const SHIP_ORBIT_RADIUS: f32 = 7.6;
+pub const SHIP_HEIGHT: f32 = 0.3;
+pub const SHIP_AZIMUTH: f32 = 0.6;
+/// Radio del anillo de modulos, en rs.
+pub const SHIP_SCALE: f32 = 0.02;
+/// Rumbo: angulo entre la direccion de vuelo y la que apunta al agujero,
+/// hacia el sentido de giro del disco. Cabeceo y alabeo de la nave.
+pub const SHIP_HEADING: f32 = 0.5;
+pub const SHIP_PITCH: f32 = 0.0;
+pub const SHIP_BANK: f32 = 0.12;
+/// Giro del anillo con `G`, en radianes por segundo.
+pub const SHIP_SPIN_SPEED: f32 = 0.35;
+pub const SHIP_MARCH_STEPS: usize = 160;
+/// Rebotes de reflexion y refraccion por rayo de camara.
+pub const SHIP_MAX_BOUNCES: u32 = 3;
+/// Direcciones con que se captura la luz del entorno en la nave.
+pub const SHIP_LIGHT_SAMPLES: usize = 2048;
+/// Absorcion del vidrio por unidad de longitud local (Beer-Lambert), RGB.
+pub const GLASS_ABSORPTION: Vec3 = Vec3::new(0.9, 0.35, 0.25);
+
+/// Camara de la Endurance: orbita la nave. El yaw se mide desde la posicion
+/// detras de la nave, mirando en su direccion de vuelo.
+pub const ENDURANCE_CAMERA_DISTANCE: f32 = 1.7;
+pub const ENDURANCE_CAMERA_YAW: f32 = 0.0;
+pub const ENDURANCE_CAMERA_PITCH: f32 = 0.06;
+pub const ENDURANCE_CAMERA_MIN_DISTANCE: f32 = 0.045;
+pub const ENDURANCE_CAMERA_MAX_DISTANCE: f32 = 3.0;
+/// Altura minima de la camara: por debajo entraria al gas opaco.
+pub const ENDURANCE_CAMERA_FLOOR: f32 = 0.08;
+/// Zoom mas rapido que alrededor del agujero: el rango es de casi 70 veces.
+pub const ENDURANCE_ZOOM_SENSITIVITY: f32 = 0.11;
+
+/// Skybox: cubemap de seis caras generado al iniciar la version.
+pub const SKYBOX_FACE_SIZE: usize = 768;
+pub const SKYBOX_BRIGHTNESS: f32 = 0.012;
+/// Brillo del skybox en cada version: la variante expone mas que la Endurance.
+pub const VARIANT_SKY_GAIN: f32 = 1.1;
+pub const ENDURANCE_SKY_GAIN: f32 = 1.0;
+/// Polo y centro galacticos: orientan la banda de la Via Lactea.
+pub const GALACTIC_POLE: Vec3 = Vec3::new(0.34, 0.94, -0.06);
+pub const GALACTIC_CENTER: Vec3 = Vec3::new(-0.75, 0.23, -0.62);
+
+/// Temperatura de color de pico del disco en la Endurance: mas calida que la
+/// variante, como el Gargantua dorado de la pelicula. El brillo no cambia.
+pub const ENDURANCE_DISK_TEMPERATURE: f32 = 5200.0;
+/// Alturas de la atmosfera y de la envoltura gris en la Endurance: un mar de
+/// nubes mas compacto que el de la variante.
+pub const ENDURANCE_ATMOSPHERE_HEIGHT_RATIO: f32 = 0.012;
+pub const ENDURANCE_OUTER_GAS_HEIGHT_RATIO: f32 = 0.014;
+
+/// Presentacion cinematografica de la Endurance.
+pub const ENDURANCE_EXPOSURE: f32 = 1.3;
+pub const ENDURANCE_BLOOM_INTENSITY: f32 = 0.2;
+pub const STREAK_INTENSITY: f32 = 0.1;
+pub const STREAK_THRESHOLD: f32 = 12.0;
+pub const STREAK_LENGTH: f32 = 0.12;
+/// Velo de la lente: halo muy ancho y tenue alrededor del disco.
+pub const GLARE_INTENSITY: f32 = 0.15;
+pub const FILM_VIGNETTE: f32 = 0.38;
+pub const FILM_GRAIN: f32 = 0.018;
+/// Saturacion despues de la curva: 1 conserva el color del cuerpo negro.
+pub const FILM_SATURATION: f32 = 0.72;
+/// Relacion de aspecto de las barras de cine (anamorfico 2.39:1).
+pub const LETTERBOX_ASPECT: f32 = 2.39;
