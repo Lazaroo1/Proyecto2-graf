@@ -16,6 +16,7 @@ mod parallel;
 mod render;
 mod scene;
 mod verify;
+mod version;
 
 use std::time::Instant;
 
