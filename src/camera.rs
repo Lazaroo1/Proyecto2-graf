@@ -1,6 +1,7 @@
 //! Camara orbital y generacion de rayos primarios.
 //!
-//! La camara siempre mira al centro del agujero negro. Su estado es esferico
+//! La camara siempre mira a su objetivo: el centro del agujero negro, o la
+//! nave en la version Endurance. Su estado es esferico
 //! (yaw, pitch, distancia) en vez de cartesiano, porque el control natural del
 //! mouse es angular: arrastrar mueve angulos, el scroll mueve el radio.
 
@@ -8,6 +9,8 @@ use crate::math::{Vec2, Vec3};
 
 use crate::config;
 use crate::math::Ray;
+use crate::scene::endurance;
+use crate::version::Version;
 
 /// Base ortonormal de la camara, en espacio de mundo.
 ///
@@ -49,7 +52,7 @@ impl CameraProjection {
 
 /// Camara que orbita alrededor de un punto fijo.
 pub struct OrbitCamera {
-    /// Centro de la orbita. Aca es siempre la singularidad.
+    /// Centro de la orbita: la singularidad, o la nave en la Endurance.
     pub target: Vec3,
     /// Angulo horizontal, en radianes.
     pub yaw: f32,
@@ -61,6 +64,15 @@ pub struct OrbitCamera {
     pub fov_y: f32,
     /// Giro de la camara sobre su propio eje, en radianes.
     pub roll: f32,
+    /// Rango del zoom. Alrededor del agujero el minimo evita el horizonte;
+    /// alrededor de la nave, atravesar su casco o acercarse demasiado al agujero.
+    pub min_distance: f32,
+    pub max_distance: f32,
+    /// Fraccion de distancia por click de rueda, como exponente.
+    pub zoom_sensitivity: f32,
+    /// Altura minima de la camara en mundo. Junto a la nave evita meterse
+    /// en el gas opaco del disco.
+    pub floor: f32,
 }
 
 impl OrbitCamera {
@@ -73,7 +85,65 @@ impl OrbitCamera {
             distance: config::CAMERA_DISTANCE,
             fov_y: config::FOV_DEGREES.to_radians(),
             roll: config::CAMERA_ROLL,
+            min_distance: config::CAMERA_MIN_DISTANCE,
+            max_distance: config::CAMERA_MAX_DISTANCE,
+            zoom_sensitivity: config::ZOOM_SENSITIVITY,
+            floor: f32::NEG_INFINITY,
         }
+    }
+
+    /// Pose de arranque de cada version.
+    pub fn home(version: Version) -> Self {
+        match version {
+            Version::Endurance => {
+                let mut camera = Self {
+                    target: endurance::ship_center(),
+                    yaw: behind_ship() + config::ENDURANCE_CAMERA_YAW,
+                    pitch: config::ENDURANCE_CAMERA_PITCH,
+                    distance: config::ENDURANCE_CAMERA_DISTANCE,
+                    min_distance: config::ENDURANCE_CAMERA_MIN_DISTANCE,
+                    max_distance: config::ENDURANCE_CAMERA_MAX_DISTANCE,
+                    zoom_sensitivity: config::ENDURANCE_ZOOM_SENSITIVITY,
+                    floor: config::ENDURANCE_CAMERA_FLOOR,
+                    ..Self::new()
+                };
+                camera.enforce_floor();
+                camera
+            }
+            _ => Self::new(),
+        }
+    }
+
+    /// Vistas de las teclas 1, 2 y 3.
+    pub fn preset(version: Version, preset: u8) -> Self {
+        let mut camera = Self::home(version);
+        match (version, preset) {
+            (Version::Endurance, 2) => {
+                // Desde abajo y de costado: la nave iluminada por el mar de
+                // nubes, recortada contra el arco de Gargantua y el cielo negro.
+                camera.yaw = behind_ship() + 0.9;
+                camera.pitch = -0.244;
+                camera.distance = 0.17;
+            }
+            (Version::Endurance, 3) => {
+                // Primer plano de la cupula desde abajo, con el arco del disco
+                // y el anillo de fotones detras del nucleo.
+                camera.yaw = behind_ship() + 0.35;
+                camera.pitch = -0.21;
+                camera.distance = 0.075;
+            }
+            (_, 2) => {
+                camera.pitch = 30.0_f32.to_radians();
+                camera.distance = 36.0;
+            }
+            (_, 3) => {
+                camera.pitch = config::CAMERA_PITCH_LIMIT;
+                camera.distance = 44.0;
+            }
+            _ => {}
+        }
+        camera.enforce_floor();
+        camera
     }
 
     /// Posicion de la camara en mundo, de coordenadas esfericas a cartesianas.
@@ -128,12 +198,18 @@ impl OrbitCamera {
         self.yaw += delta_yaw;
         self.pitch = (self.pitch + delta_pitch)
             .clamp(-config::CAMERA_PITCH_LIMIT, config::CAMERA_PITCH_LIMIT);
+        self.enforce_floor();
     }
 
-    /// Aplica zoom. `delta` positivo acerca.
-    ///
-    /// El zoom es multiplicativo, no aditivo: asi se siente igual de rapido de
-    /// cerca que de lejos.
+    /// Sube el pitch lo necesario para que la camara no quede bajo `floor`.
+    fn enforce_floor(&mut self) {
+        let lowest = (self.floor - self.target.y) / self.distance;
+        if lowest > -1.0 {
+            let pitch = lowest.min(1.0).asin();
+            self.pitch = self.pitch.max(pitch).min(config::CAMERA_PITCH_LIMIT);
+        }
+    }
+
     /// Aplica zoom. `delta` positivo acerca.
     ///
     /// El factor es `exp(-delta * sensibilidad)` y no `1 - delta * sensibilidad`.
@@ -144,8 +220,33 @@ impl OrbitCamera {
     /// seguidos equivalen a uno del doble) y se siente igual de rapida de cerca
     /// que de lejos.
     pub fn zoom(&mut self, delta: f32) {
-        let factor = (-delta * config::ZOOM_SENSITIVITY).exp();
-        self.distance = (self.distance * factor)
-            .clamp(config::CAMERA_MIN_DISTANCE, config::CAMERA_MAX_DISTANCE);
+        let factor = (-delta * self.zoom_sensitivity).exp();
+        self.distance = (self.distance * factor).clamp(self.min_distance, self.max_distance);
+        self.enforce_floor();
+    }
+}
+
+/// Yaw de la camara cuando queda detras de la nave, mirando hacia donde vuela.
+fn behind_ship() -> f32 {
+    let back = -endurance::ship_forward();
+    back.x.atan2(back.z)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn endurance_camera_stays_above_the_gas_and_zooms_into_the_ship() {
+        let mut camera = OrbitCamera::home(Version::Endurance);
+        camera.orbit(0.0, -1.4);
+        assert!(camera.position().y >= config::ENDURANCE_CAMERA_FLOOR - 1e-5);
+        camera.zoom(1000.0);
+        assert_eq!(camera.distance, config::ENDURANCE_CAMERA_MIN_DISTANCE);
+        assert!(camera.distance > 1.6 * config::SHIP_SCALE, "no atraviesa el casco");
+        // La camara de arranque mira la nave por detras, hacia el agujero.
+        let home = OrbitCamera::home(Version::Endurance);
+        let look = (home.target - home.position()).normalize();
+        assert!(look.dot(-home.target.normalize()) > 0.5);
     }
 }
