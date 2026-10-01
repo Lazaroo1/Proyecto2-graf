@@ -73,6 +73,8 @@ pub struct OrbitCamera {
     /// Altura minima de la camara en mundo. Junto a la nave evita meterse
     /// en el gas opaco del disco.
     pub floor: f32,
+    /// Radio alrededor del agujero que la camara no cruza; 0 lo desactiva.
+    pub keep_out: f32,
 }
 
 impl OrbitCamera {
@@ -89,6 +91,7 @@ impl OrbitCamera {
             max_distance: config::CAMERA_MAX_DISTANCE,
             zoom_sensitivity: config::ZOOM_SENSITIVITY,
             floor: f32::NEG_INFINITY,
+            keep_out: 0.0,
         }
     }
 
@@ -105,6 +108,7 @@ impl OrbitCamera {
                     max_distance: config::ENDURANCE_CAMERA_MAX_DISTANCE,
                     zoom_sensitivity: config::ENDURANCE_ZOOM_SENSITIVITY,
                     floor: config::ENDURANCE_CAMERA_FLOOR,
+                    keep_out: config::ENDURANCE_CAMERA_KEEP_OUT,
                     ..Self::new()
                 };
                 camera.enforce_floor();
@@ -153,8 +157,30 @@ impl OrbitCamera {
     pub fn position(&self) -> Vec3 {
         let (sin_pitch, cos_pitch) = self.pitch.sin_cos();
         let (sin_yaw, cos_yaw) = self.yaw.sin_cos();
-        let offset = Vec3::new(cos_pitch * sin_yaw, sin_pitch, cos_pitch * cos_yaw) * self.distance;
-        self.target + offset
+        let direction = Vec3::new(cos_pitch * sin_yaw, sin_pitch, cos_pitch * cos_yaw);
+        self.target + direction * self.reach(direction)
+    }
+
+    /// Distancia efectiva en la direccion de orbita: la pedida, salvo que la
+    /// camara fuera a entrar a la esfera `keep_out` alrededor del agujero. Ahi
+    /// se detiene en su borde, y al girar hacia otro lado recupera la distancia
+    /// pedida.
+    fn reach(&self, direction: Vec3) -> f32 {
+        if self.keep_out <= 0.0 {
+            return self.distance;
+        }
+        let half_b = self.target.dot(direction);
+        let c = self.target.length_squared() - self.keep_out * self.keep_out;
+        let discriminant = half_b * half_b - c;
+        if c <= 0.0 || discriminant <= 0.0 {
+            return self.distance;
+        }
+        let enter = -half_b - discriminant.sqrt();
+        if enter > 0.0 {
+            self.distance.min(enter)
+        } else {
+            self.distance
+        }
     }
 
     /// Base ortonormal por Gram-Schmidt contra el up global.
@@ -248,5 +274,24 @@ mod tests {
         let home = OrbitCamera::home(Version::Endurance);
         let look = (home.target - home.position()).normalize();
         assert!(look.dot(-home.target.normalize()) > 0.5);
+    }
+
+    #[test]
+    fn zooming_far_out_never_crosses_into_the_black_hole() {
+        let mut camera = OrbitCamera::home(Version::Endurance);
+        camera.zoom(-1000.0);
+        assert_eq!(camera.distance, config::ENDURANCE_CAMERA_MAX_DISTANCE);
+        // Girar la orbita entera: en ninguna direccion la camara entra a la
+        // esfera de exclusion, aunque la distancia pedida la atravesaria.
+        let mut closest = f32::INFINITY;
+        for _ in 0..720 {
+            camera.orbit(0.0087, 0.0);
+            closest = closest.min(camera.position().length());
+        }
+        assert!(closest >= config::ENDURANCE_CAMERA_KEEP_OUT - 1e-3, "{closest}");
+        // Alrededor del agujero la camara no cambia: sin esfera de exclusion.
+        let classic = OrbitCamera::new();
+        assert_eq!(classic.keep_out, 0.0);
+        assert!((classic.position().length() - classic.distance).abs() < 1e-4);
     }
 }

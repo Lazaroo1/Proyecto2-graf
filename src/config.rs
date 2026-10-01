@@ -186,10 +186,12 @@ pub const ENDURANCE_CAMERA_DISTANCE: f32 = 1.7;
 pub const ENDURANCE_CAMERA_YAW: f32 = 0.0;
 pub const ENDURANCE_CAMERA_PITCH: f32 = 0.06;
 pub const ENDURANCE_CAMERA_MIN_DISTANCE: f32 = 0.045;
-pub const ENDURANCE_CAMERA_MAX_DISTANCE: f32 = 3.0;
+pub const ENDURANCE_CAMERA_MAX_DISTANCE: f32 = 12.0;
 /// Altura minima de la camara: por debajo entraria al gas opaco.
 pub const ENDURANCE_CAMERA_FLOOR: f32 = 0.08;
-/// Zoom mas rapido que alrededor del agujero: el rango es de casi 70 veces.
+/// Radio alrededor del agujero que la camara no cruza al alejarse de la nave.
+pub const ENDURANCE_CAMERA_KEEP_OUT: f32 = 2.5;
+/// Zoom mas rapido que alrededor del agujero: el rango es de mas de 260 veces.
 pub const ENDURANCE_ZOOM_SENSITIVITY: f32 = 0.11;
 
 /// Skybox: cubemap de seis caras generado al iniciar la version.

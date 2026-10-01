@@ -556,10 +556,12 @@ Implementación: [cámara](src/camera.rs) y [entrada](src/input.rs).
 La nave vuela a 7.6 radios de Schwarzschild del eje, a 0.3 rs sobre el plano
 del disco, rozando el tope del mar de nubes y en dirección al agujero. Su
 anillo mide 0.02 rs: la nave es diminuta frente a Gargantua, como en la toma
-de la película en que la Endurance pasa sobre el disco. El zoom va de 3 rs a
-0.045 rs de la nave, unas 70 veces, para ver desde el conjunto hasta los
-detalles del casco. La cámara no baja de 0.08 rs sobre el plano: más abajo
-entraría al gas opaco.
+de la película en que la Endurance pasa sobre el disco. El zoom va de 12 rs a
+0.045 rs de la nave, más de 260 veces: desde el plano completo de Gargantua,
+con la nave como un punto, hasta los detalles del casco. La cámara no baja de
+0.08 rs sobre el plano, porque más abajo entraría al gas opaco. Tampoco entra
+a la esfera de 2.5 rs alrededor del agujero: si la órbita la cruzaría, se
+detiene en su borde y recupera la distancia pedida al girar hacia otro lado.
 
 En esta versión el gas es más compacto que en la variante (atmósfera de altura
 $0.012R$ y envoltura de $0.014R$, en vez de $0.028R$): por encima del tope de
@@ -570,7 +572,7 @@ temperatura de color de pico de 5200 K.
 
 | Criterio | Implementación | Dónde verlo |
 | --- | --- | --- |
-| Rotación del diorama y zoom | La cámara orbita la nave con el mouse o W/A/S/D y se acerca o aleja con la rueda o las flechas, de 3 rs a 0.045 rs. `G` hace girar el anillo, como la gravedad artificial de la película | [camera.rs](src/camera.rs), [input.rs](src/input.rs), [main.rs](src/main.rs) |
+| Rotación del diorama y zoom | La cámara orbita la nave con el mouse o W/A/S/D y se acerca o aleja con la rueda o las flechas, de 12 rs a 0.045 rs. `G` hace girar el anillo, como la gravedad artificial de la película | [camera.rs](src/camera.rs), [input.rs](src/input.rs), [main.rs](src/main.rs) |
 | Materiales (seis; cinco cuentan) | Cada uno con textura procedural propia y parámetros propios de albedo, specular, transparencia, reflectividad, rugosidad, índice de refracción, metalicidad y emisión | [material.rs](src/scene/material.rs), tabla siguiente, `--materials` |
 | Refracción con sentido | Cúpula de observación de vidrio sobre el tablero de instrumentos del núcleo: Snell al entrar y al salir, reflexión total interna y absorción del vidrio. A través de ella se ven las luces del tablero desplazadas | [endurance.rs](src/scene/endurance.rs) (`through_glass`), [raymarch.rs](src/render/raymarch.rs), vista `3` |
 | Reflexión | Aislante dorado, aluminio desnudo, mantas plateadas, paneles solares, nervios de la cúpula y el vidrio por Fresnel. Los rayos reflejados se integran como geodésicas | [raymarch.rs](src/render/raymarch.rs) (`shade_hit`), vistas `2` y `3` |
@@ -769,7 +771,7 @@ propias, la normalización de vectores y el procesamiento paralelo, incluidos
 bloques incompletos, trabajos
 anidados y finalización de los préstamos cuando hay un fallo en los hilos.
 
-Otras 17 pruebas, 42 en total, cubren la Endurance:
+Otras 18 pruebas, 43 en total, cubren la Endurance:
 - **Versiones y materiales:** el ciclo de `V` por las tres versiones, y que los
   seis materiales tengan parámetros válidos y texturas distintas, que varían de
   cerca y se aquietan de lejos.
@@ -778,7 +780,8 @@ Otras 17 pruebas, 42 en total, cubren la Endurance:
 - **Nave:** que la geometría quepa en su esfera envolvente con todas sus piezas,
   que las cotas por región nunca sobreestimen la distancia, que los rayos peguen
   en la nave y produzcan reflejos, y que la luz que entra a la cúpula llegue al
-  tablero. También que la nave vuele sobre el gas y que la cámara no baje a él.
+  tablero. También que la nave vuele sobre el gas, que la cámara no baje a él
+  y que, al alejarse, nunca entre a la esfera de exclusión del agujero.
 - **Luz del entorno:** que un cielo uniforme dé $\pi L$ desde cualquier lado y
   que un piso luminoso ilumine desde abajo y se vuelva una luz clave.
 - **Cielo y presentación:** la ida y vuelta del cubemap, la precisión del RGBE,
