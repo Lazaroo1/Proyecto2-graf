@@ -13,6 +13,7 @@
 
 pub mod blackhole;
 pub mod disk;
+pub mod material;
 pub mod relativity;
 pub mod skybox;
 pub mod stars;
