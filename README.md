@@ -25,7 +25,7 @@ imágenes ni GIFs usados como fondo.
 
 [![Video del proyecto: las tres versiones, vistas, zoom y la nave girando](media/portada.jpg)](media/demo.mp4)
 
-**[Ver el video (MP4, 1 min 48 s)](media/demo.mp4)** · [descargar](media/demo.mp4?raw=true)
+**[Ver el video (MP4, 1 min 48 s)](media/demo.mp4)** · [descargar](https://github.com/Lazaroo1/Proyecto2-graf/raw/main/media/demo.mp4)
 
 Muestra las tres versiones, varios ángulos de cámara, el zoom hacia la nave y
 hacia afuera, y el anillo de la Endurance girando.
