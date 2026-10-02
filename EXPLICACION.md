@@ -205,17 +205,17 @@ archivo. Los primeros son el núcleo del render; los últimos, soporte.
 
 ### 1. La trayectoria de la luz (geodésica nula de Schwarzschild)
 
-$$
+```math
 \frac{d^2u}{d\phi^2}+u=3Mu^2,\qquad u=\frac1r
-$$
+```
 
 En forma vectorial, que es la que integra el programa:
 
-$$
+```math
 \frac{d\mathbf r}{d\lambda}=\mathbf v,\qquad
 \frac{d\mathbf v}{d\lambda}=-\frac32\,r_s\,h^2\,\frac{\mathbf r}{r^5},\qquad
 h=\lVert\mathbf r\times\mathbf v\rVert
-$$
+```
 
 Sin el término $3Mu^2$, la luz viajaría en línea recta; ese término es toda la
 relatividad general del problema. Es lo que dobla la luz y crea la sombra, el
@@ -237,17 +237,17 @@ estrellas estiradas.
 
 ### 2. El tamaño del agujero: radio de Schwarzschild y sombra
 
-$$
+```math
 r_s=\frac{2GM}{c^2},\qquad
 r_{\text{fotones}}=1.5\,r_s,\qquad
 r_{\text{ISCO}}=3\,r_s,\qquad
 b_c=\frac{3\sqrt3}{2}\,r_s\approx2.6\,r_s
-$$
+```
 
 $r_s$ es el horizonte de eventos: de ahí no sale ni la luz. El proyecto lo usa
 como unidad ($r_s=1$). A 1.5 $r_s$ la luz puede quedar orbitando (esfera de
 fotones) y a 3 $r_s$ está la órbita estable más cercana, donde empieza el disco.
-La sombra se ve con radio $b_c\approx2.6\,r_s$, más grande que el horizonte,
+La sombra se ve con radio $`b_c\approx2.6\,r_s`$, más grande que el horizonte,
 porque la gravedad también atrapa la luz que pasa cerca.
 
 **Dónde se usa:**
@@ -265,16 +265,16 @@ porque la gravedad también atrapa la luz que pasa cerca.
 
 ### 3. Runge–Kutta de cuarto orden
 
-$$
+```math
 k_1=F(Y_n),\quad
 k_2=F\!\left(Y_n+\tfrac{\Delta\lambda}{2}k_1\right),\quad
 k_3=F\!\left(Y_n+\tfrac{\Delta\lambda}{2}k_2\right),\quad
 k_4=F(Y_n+\Delta\lambda\,k_3)
-$$
+```
 
-$$
+```math
 Y_{n+1}=Y_n+\frac{\Delta\lambda}{6}\left(k_1+2k_2+2k_3+k_4\right)
-$$
+```
 
 Runge–Kutta no es una ley de la física sino un método numérico: aproxima la
 solución de una ecuación diferencial avanzando en pasos pequeños. $Y$ es la
@@ -293,12 +293,12 @@ donde la luz se curva más.
 
 ### 4. Emisión y absorción del gas (transferencia radiativa)
 
-$$
+```math
 \alpha_i=1-e^{-\tau_i},\qquad
 C_{i+1}=C_i+T_i\,\alpha_i\,S_i,\qquad
 T_{i+1}=T_i\,(1-\alpha_i),\qquad
 C_{\text{final}}=C_N+T_N\,C_{\text{fondo}}
-$$
+```
 
 Cada paso del rayo dentro del gas aporta luz propia $S$ y tapa lo que hay detrás
 según su opacidad $\alpha$, que depende de la profundidad óptica $\tau$ (cuánto
@@ -318,11 +318,11 @@ no como una superficie plana.
 
 ### 5. El corrimiento de la luz (Doppler y gravedad)
 
-$$
+```math
 g=\frac{\nu_{\text{obs}}}{\nu_{\text{em}}}=
 \frac{\sqrt{1-3M/R}}{\left(1-\Omega\,b_y\right)\sqrt{1-r_s/r_{\text{obs}}}},
 \qquad \Omega=\sqrt{\frac{M}{R^3}}
-$$
+```
 
 $\Omega$ es la velocidad angular del gas en órbita y $b_y$ indica hacia dónde va
 el fotón respecto del giro. El factor $(1-\Omega b_y)$ es el efecto Doppler: el
@@ -342,9 +342,9 @@ arriba es la energía que pierde la luz al salir del pozo gravitatorio.
 
 ### 6. Color y brillo observados (beaming relativista)
 
-$$
+```math
 T_{\text{obs}}=g\,T_{\text{em}},\qquad I_{\text{obs}}=g^4\,I_{\text{em}}
-$$
+```
 
 Con la $g$ de la ecuación 5, el lado que se acerca se ve más caliente (más
 blanco) y mucho más brillante: con $g=1.3$, el brillo se multiplica por
@@ -353,7 +353,7 @@ $1.3^4\approx2.9$. Por eso un lado del disco brilla mucho más que el otro.
 **Dónde se usa:**
 
 - [disk.rs](src/scene/disk.rs): `prepare` aplica la temperatura observada
-  $gT$ y el brillo $(gT/7000\,\mathrm K)^4$ a cada muestra de gas.
+  $gT$ y el brillo $`(gT/7000\,\mathrm K)^4`$ a cada muestra de gas.
 - [blackbody.rs](src/math/blackbody.rs): `planckian_rgb` convierte la
   temperatura observada en color.
 - [stars.rs](src/scene/stars.rs): lo mismo para el cielo, con
@@ -363,14 +363,14 @@ $1.3^4\approx2.9$. Por eso un lado del disco brilla mucho más que el otro.
 
 ### 7. La temperatura del disco
 
-$$
+```math
 T(R)\propto x^{-3/4}\left(1-x^{-1/2}\right)^{1/4},\qquad
 x=\frac{R}{R_{\text{in}}},\quad R_{\text{in}}=3\,r_s
-$$
+```
 
 Es el modelo de disco delgado con torque nulo en el borde interno: el gas de
 adentro está más caliente, pero la temperatura cae a cero justo en el borde
-(3 $r_s$), y el máximo queda un poco afuera, en $R=\tfrac{49}{36}\cdot3\approx4.1\,r_s$.
+(3 $r_s$), y el máximo queda un poco afuera, en $`R=\tfrac{49}{36}\cdot3\approx4.1\,r_s`$.
 Se normaliza para que el pico sea 7000 K.
 
 **Dónde se usa:**
@@ -382,11 +382,11 @@ Se normaliza para que el pico sea 7000 K.
 
 ### 8. Ley de Snell (la refracción de la cúpula)
 
-$$
+```math
 n_1\sin\theta_1=n_2\sin\theta_2,\qquad
 \mathbf t=\eta\,\mathbf d+\left(\eta\cos\theta_1-\sqrt{1-\eta^2\left(1-\cos^2\theta_1\right)}\right)\mathbf n,
 \qquad \eta=\frac{n_1}{n_2}
-$$
+```
 
 La luz se dobla al entrar al vidrio ($n=1.5$) y otra vez al salir. Si lo de
 dentro de la raíz es negativo, hay reflexión total interna y la luz rebota
@@ -405,10 +405,10 @@ través de la cúpula se ven las luces del tablero desplazadas.
 
 ### 9. Reflexión y Fresnel
 
-$$
+```math
 \mathbf r=\mathbf d-2(\mathbf d\cdot\mathbf n)\,\mathbf n,\qquad
 F=F_0+(1-F_0)\left(1-\cos\theta\right)^5
-$$
+```
 
 $\mathbf r$ es la dirección del rayo reflejado (el ángulo de entrada es igual al
 de salida). $F$, la aproximación de Schlick, dice qué fracción de la luz se
@@ -429,11 +429,11 @@ vuelve a ser luz curvada: el casco refleja el disco deformado por la lente.
 
 ### 10. Sphere tracing con funciones de distancia (SDF)
 
-$$
+```math
 t_{k+1}=t_k+d(\mathbf p_k),\qquad
 \mathbf p_k=\mathbf a+t_k\,\hat{\mathbf u},\qquad
 \text{impacto si } d(\mathbf p_k)<\varepsilon
-$$
+```
 
 $d(\mathbf p)$ es la distancia del punto a la superficie más cercana de la nave
 (negativa adentro). Como en una esfera de radio $d$ no hay nada, el rayo puede

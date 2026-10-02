@@ -174,17 +174,17 @@ el gas y la respuesta de la cámara.
 
 Se usan unidades geométricas con $G=c=1$ y se fija:
 
-$$
+```math
 r_s=\frac{2GM}{c^2}=1,\qquad M=\frac12.
-$$
+```
 
 El horizonte, la esfera de fotones, la órbita circular estable más interna
 (ISCO) y el parámetro de impacto crítico son:
 
-$$
+```math
 r_H=r_s=1,\quad r_{\mathrm{ph}}=3M=1.5,\quad
 r_{\mathrm{ISCO}}=6M=3,\quad b_c=3\sqrt3 M\approx2.598076.
-$$
+```
 
 $b_c$ describe el tamaño aparente de la sombra para un observador lejano;
 no es el radio del horizonte.
@@ -200,37 +200,37 @@ Implementación: [configuración](src/config.rs) y [relatividad](src/scene/relat
 Para una dirección local unitaria $\mathbf n$, sus componentes radial y
 tangencial se convierten a la parametrización del integrador mediante:
 
-$$
+```math
 \mathbf n_\parallel=(\mathbf n\cdot\hat{\mathbf r})\hat{\mathbf r},\qquad
 \mathbf n_\perp=\mathbf n-\mathbf n_\parallel,
-$$
+```
 
-$$
+```math
 \mathbf v_0=\mathbf n_\perp+
 \sqrt{1-\frac{r_s}{r_{\mathrm{obs}}}}\,\mathbf n_\parallel.
-$$
+```
 
 La energía local inicial del fotón se normaliza a uno. Durante el trazado
 se conservan el momento angular y la energía:
 
-$$
+```math
 \mathbf h=\mathbf r\times\mathbf v,\qquad
 E^2=\lVert\mathbf v\rVert^2-\frac{r_s\lVert\mathbf h\rVert^2}{r^3}.
-$$
+```
 
 La geodésica nula de Schwarzschild, en su plano orbital y con $u=1/r$, cumple:
 
-$$
+```math
 \frac{d^2u}{d\phi^2}+u=3Mu^2.
-$$
+```
 
 La forma vectorial que integra el programa es:
 
-$$
+```math
 \frac{d\mathbf r}{d\lambda}=\mathbf v,\qquad
 \frac{d\mathbf v}{d\lambda}=
 -\frac32\,r_s\lVert\mathbf h\rVert^2\frac{\mathbf r}{r^5}.
-$$
+```
 
 El módulo de $\mathbf v$ no es una velocidad física local y no se fuerza a uno
 después de cada paso. La curvatura de los rayos genera los arcos del disco
@@ -243,25 +243,25 @@ Implementación: [fotones](src/scene/blackhole.rs) y [relatividad](src/scene/rel
 Para $\mathbf Y=(\mathbf r,\mathbf v)$ y
 $F(\mathbf Y)=(\mathbf v,\mathbf a(\mathbf r))$:
 
-$$
+```math
 \begin{aligned}
-k_1&=F(\mathbf Y_n),\\
-k_2&=F(\mathbf Y_n+\tfrac12\Delta\lambda k_1),\\
-k_3&=F(\mathbf Y_n+\tfrac12\Delta\lambda k_2),\\
-k_4&=F(\mathbf Y_n+\Delta\lambda k_3),\\
-\mathbf Y_{n+1}&=\mathbf Y_n+
+k_1&=F(\mathbf Y_n),
+\\ k_2&=F(\mathbf Y_n+\tfrac12\Delta\lambda k_1),
+\\ k_3&=F(\mathbf Y_n+\tfrac12\Delta\lambda k_2),
+\\ k_4&=F(\mathbf Y_n+\Delta\lambda k_3),
+\\ \mathbf Y_{n+1}&=\mathbf Y_n+
 \frac{\Delta\lambda}{6}(k_1+2k_2+2k_3+k_4).
 \end{aligned}
-$$
+```
 
 El paso base se limita por curvatura y radio:
 
-$$
+```math
 \Delta\lambda_{\mathrm{base}}=
-\operatorname{clamp}\left(
+\mathrm{clamp}\left(
 \min\left(0.06\frac{\lVert\mathbf v\rVert}{\lVert\mathbf a\rVert},\;0.10r\right),
 \;0.015,\;5\right).
-$$
+```
 
 Para aceleración casi nula se usa 5 como límite de curvatura. El muestreo del
 volumen reduce además el paso según su espesor, para no atravesar el núcleo
@@ -274,28 +274,28 @@ Implementación: [integrador](src/scene/blackhole.rs) y [raymarch](src/render/ra
 
 La velocidad angular de una órbita circular ecuatorial es:
 
-$$
+```math
 \Omega(R)=\sqrt{\frac{M}{R^3}}.
-$$
+```
 
 Para el gas y un observador estático, el factor de frecuencia utilizado es:
 
-$$
+```math
 g=\frac{\nu_{\mathrm{obs}}}{\nu_{\mathrm{em}}}=
 \frac{\sqrt{1-3M/R}}
 {(1-\Omega(R)b_y)\sqrt{1-r_s/r_{\mathrm{obs}}}},\qquad
 b_y=\frac{L_y}{E}=-\frac{(\mathbf r\times\mathbf v)_y}{E}.
-$$
+```
 
 El signo negativo aparece porque se traza desde la cámara hacia la fuente,
 en sentido contrario al fotón recibido. En el código, $b_y$ se almacena en
 el campo `lz_over_e`; el eje de rotación empleado es Y.
 
-$$
+```math
 T_{\mathrm{obs}}=gT_{\mathrm{em}},\qquad
 \frac{I_\nu}{\nu^3}=\mathrm{constante},\qquad
 I_{\mathrm{bol,obs}}=g^4 I_{\mathrm{bol,em}}.
-$$
+```
 
 El factor $g^4$ se aplica una sola vez. Produce un lado más brillante y azulado
 al acercarse, y uno más tenue y cálido al alejarse. Visto exactamente desde el
@@ -308,11 +308,11 @@ Implementación: [relatividad](src/scene/relativity.rs) y [disco](src/scene/disk
 
 El disco usa un perfil térmico newtoniano con torque nulo en su borde interno:
 
-$$
+```math
 x=\frac{R}{R_{\mathrm{in}}},\qquad R_{\mathrm{in}}=3,\qquad
 T_{\mathrm{em}}(R)=\frac{7000\,\mathrm K}{0.487872}
 x^{-3/4}(1-x^{-1/2})^{1/4}.
-$$
+```
 
 Se define $T_{\mathrm{em}}=0$ para $R\le R_{\mathrm{in}}$.
 El máximo está en $R=(49/36)R_{\mathrm{in}}$.
@@ -322,25 +322,25 @@ planckiano, $P(T)$, implementada en [blackbody.rs](src/math/blackbody.rs).
 La temperatura se acota a 1667–25000 K. Sus coordenadas CIE $(x_c,y_c)$
 se convierten a XYZ y a RGB lineal:
 
-$$
+```math
 X=\frac{x_c}{y_c},\qquad Y=1,\qquad Z=\frac{1-x_c-y_c}{y_c},
-$$
+```
 
-$$
+```math
 P(T)=\max\left(\begin{bmatrix}
-3.2406&-1.5372&-0.4986\\
--0.9689&1.8758&0.0415\\
-0.0557&-0.2040&1.0570
+3.2406&-1.5372&-0.4986
+\\ -0.9689&1.8758&0.0415
+\\ 0.0557&-0.2040&1.0570
 \end{bmatrix}\begin{bmatrix}X\\Y\\Z\end{bmatrix},\;0\right).
-$$
+```
 
 La fuente térmica RGB utilizada en el volumen es:
 
-$$
+```math
 S_{\mathrm{th}}=P(sgT_{\mathrm{em}})
 \left(\frac{gT_{\mathrm{em}}}{7000\,\mathrm K}\right)^4,\qquad
 s=\begin{cases}1&\text{original},\\6500/7000&\text{variante},\\5200/7000&\text{Endurance}.\end{cases}
-$$
+```
 
 El ajuste de la variante y de la Endurance cambia la temperatura de color
 conservando la normalización de brillo. Esta es una representación RGB
@@ -350,41 +350,41 @@ aproximada, no una integración espectral completa de la ley de Planck.
 
 La transición suave empleada en los bordes es:
 
-$$
+```math
 \mathcal S(a,b;R)=q^2(3-2q),\qquad
-q=\operatorname{clamp}\left(\frac{R-a}{b-a},0,1\right).
-$$
+q=\mathrm{clamp}\left(\frac{R-a}{b-a},0,1\right).
+```
 
 El núcleo tiene altura $H_c=0.004R$. La atmósfera usa
 $(H_a,\tau_a)=(0.035R,0.035)$ en el original, $(0.028R,0.10)$ en la variante y
 $(0.012R,0.10)$ en la Endurance.
 El perfil de opacidad térmica es:
 
-$$
+```math
 W(R)=\mathcal S(3,3.24;R)\,[1-\mathcal S(7.5,13;R)],
-$$
+```
 
-$$
+```math
 D_t=W(R)\left[
 \frac{8}{H_c}e^{-y^2/(2H_c^2)}+
 \frac{\tau_a}{H_a}e^{-y^2/(2H_a^2)}\right].
-$$
+```
 
 La variante añade una envoltura con $H_o=0.028R$ ($0.014R$ en la Endurance):
 
-$$
+```math
 D_o=\frac{0.30}{H_o}\,
 \mathcal S(6,10;R)\,[1-\mathcal S(12,19;R)]\,e^{-y^2/(2H_o^2)}.
-$$
+```
 
-$$
+```math
 c_o=\mathcal S(6,13;R),\qquad
 \mathbf k_o=(1-c_o)(1,0.82,0.68)+c_o(0.94,0.96,1),
-$$
+```
 
-$$
+```math
 S_o=0.045\,g^4\mathbf k_o\,e^{-0.22\max(R-6,0)}.
-$$
+```
 
 Esta fuente aproxima luz dispersada: pasa de cálida a gris y se atenúa
 hacia afuera. Los perfiles se truncan a 3.5 alturas de su atmósfera;
@@ -393,17 +393,17 @@ el medio térmico termina en $R=13$ y la envoltura en $R=19$.
 En la periferia, una fracción del medio térmico usa también esa fuente gris.
 Esta mezcla conserva la opacidad total y hace gradual la transición del borde:
 
-$$
+```math
 f=\mathcal S(7.5,13;R),\qquad
 D_{\mathrm{th}}=(1-f)D_t,\qquad D_{\mathrm{gris}}=D_o+fD_t.
-$$
+```
 
 En el original se usan $f=0$ y $D_o=0$. La opacidad y la fuente combinadas son:
 
-$$
+```math
 D=D_{\mathrm{th}}+D_{\mathrm{gris}},\qquad
 S=\frac{D_{\mathrm{th}}S_{\mathrm{th}}+D_{\mathrm{gris}}S_o}{D}.
-$$
+```
 
 El enfriamiento visual y la luz dispersada son una aproximación de material,
 sin resolver el equilibrio térmico del gas. Se omiten muestras de densidad
@@ -414,28 +414,28 @@ Implementación: [disco](src/scene/disk.rs).
 
 La longitud comóvil y la profundidad óptica de cada segmento se aproximan por:
 
-$$
+```math
 \Delta\ell_{\mathrm{em}}=\frac{\Delta\lambda}{g},\qquad
 \tau=\frac{D}{\sqrt{2\pi}}\frac{\Delta\lambda}{g}.
-$$
+```
 
 El campo procedural del gas $m$ modula la opacidad y la emisión:
 
-$$
+```math
 \alpha=1-e^{-\tau(0.4+0.6m)},\qquad S_{\mathrm{gas}}=mS.
-$$
+```
 
 Se compone desde la cámara hacia el fondo, empezando con color $C_0=0$
 y transmitancia $\mathcal T_0=1$:
 
-$$
+```math
 C_{i+1}=C_i+\mathcal T_i\alpha_i S_{\mathrm{gas},i},\qquad
 \mathcal T_{i+1}=\mathcal T_i(1-\alpha_i),
-$$
+```
 
-$$
+```math
 C_{\mathrm{final}}=C_N+\mathcal T_N C_{\mathrm{cielo}}.
-$$
+```
 
 La composición se detiene si la transmitancia cae por debajo de 0.004.
 Un rayo capturado no recibe contribución del cielo.
@@ -448,42 +448,42 @@ El ruido de valor $N(\mathbf q)\in[-1,1]$ interpola una tabla determinista
 usando el suavizado $f(a)=a^2(3-2a)$. Se suman $n=5$ octavas en el original
 y $n=4$ en la variante:
 
-$$
-\operatorname{fBm}(\mathbf q)=\frac12+\frac12
+```math
+\mathrm{fBm}(\mathbf q)=\frac12+\frac12
 \frac{\sum_{k=0}^{n-1}2^{-(k+1)}N(2^k\mathbf q)}
 {\sum_{k=0}^{n-1}2^{-(k+1)}}.
-$$
+```
 
 El ángulo del disco se introduce como seno y coseno para evitar una costura
 al completar una vuelta. Una deformación de dominio $\mathbf w$, obtenida
 con tres muestras de ruido, produce cada capa:
 
-$$
-L=0.8\operatorname{fBm}(\mathbf q+1.15\mathbf w)
+```math
+L=0.8\mathrm{fBm}(\mathbf q+1.15\mathbf w)
 +0.2\left[1-\left|N(2.8\mathbf q+2\mathbf w)\right|\right]-0.035.
-$$
+```
 
 Se mezclan dos capas de edades desfasadas, con período $P=5$ segundos:
 
-$$
-p_a=\operatorname{fract}(t/P),\quad
-p_b=\operatorname{fract}(t/P+0.5),\quad w_a=\sin^2(\pi p_a),
-$$
+```math
+p_a=\mathrm{fract}(t/P),\quad
+p_b=\mathrm{fract}(t/P+0.5),\quad w_a=\sin^2(\pi p_a),
+```
 
-$$
+```math
 \phi_j=\phi+8\Omega(R)(p_j-0.5)P,\qquad
 F=w_aL_a+(1-w_a)L_b,\qquad
 m=1+0.96\left[e^{\kappa(F-0.5)}-1\right],\qquad
 \kappa=\begin{cases}8&\text{original},\\11&\text{variante}.\end{cases}
-$$
+```
 
 En la variante, la altura normalizada $h=y/H_o$ modifica el dominio de ruido
 de cada campo:
 
-$$
+```math
 A=3.2+0.5h,\qquad \theta_j=\phi_j+0.18h,\qquad
 \mathbf q_j=1.5(A\cos\theta_j,\ A\sin\theta_j,\ 1.3R)+s_j(1,1,1).
-$$
+```
 
 $s_j$ es la semilla espacial del campo durante su ciclo. Así el ruido cambia
 con la altura y forma filamentos con cizalla. La variante almacena cada campo
@@ -504,10 +504,10 @@ Implementación: [ruido](src/math/noise.rs) y [textura del disco](src/scene/disk
 El cielo se consulta con la dirección de salida de la geodésica,
 $\mathbf d_{\mathrm{esc}}$. En la variante y en la Endurance se transforma con:
 
-$$
+```math
 \mathbf d_{\mathrm{cielo}}(t)=
 R_z(0.23)R_y(0.012t)R_z(-0.23)\mathbf d_{\mathrm{esc}}.
-$$
+```
 
 Los ángulos están en radianes. Esta deriva angular representa movimiento
 relativo del fondo, mientras la métrica del agujero permanece estática.
@@ -520,11 +520,11 @@ donde $d$ es la distancia al centro de su celda, $s_\star$ su tamaño y
 $\eta\in[0,1)$ un valor determinista que distribuye los brillos.
 El corrimiento para luz procedente de muy lejos es:
 
-$$
+```math
 g_\infty=\frac1{\sqrt{1-r_s/r_{\mathrm{obs}}}},\qquad
 T_{\star,\mathrm{obs}}=g_\infty T_\star,\qquad
 I_{\star,\mathrm{obs}}=g_\infty^4I_\star.
-$$
+```
 
 Implementación: [estrellas](src/scene/stars.rs).
 
@@ -532,39 +532,39 @@ Implementación: [estrellas](src/scene/stars.rs).
 
 Para reducir ruido sin acumular segundos de plasma superpuesto:
 
-$$
+```math
 w_t=\min(e^{-\Delta t/0.045},0.72),\qquad
 C_h=(1-w_t)C_{\mathrm{actual}}+w_tC_{\mathrm{anterior}}.
-$$
+```
 
 El historial se guarda antes del bloom y se descarta al cambiar de vista.
 Para el bloom se calcula la luminancia del color promedio $\bar C$ de cada
 bloque y se extrae su parte brillante:
 
-$$
+```math
 Y=0.2126\bar C_R+0.7152\bar C_G+0.0722\bar C_B,\qquad
 B_0=\bar C\frac{\max(Y-0.6/5,0)}{\max(Y,10^{-4})}.
-$$
+```
 
 Se forman seis niveles reducidos y se desenfocan con un núcleo gaussiano
 separable, normalizado, de radio 4 y $\sigma=2$:
 
-$$
+```math
 K(i)=\frac{e^{-i^2/(2\sigma^2)}}{\sum_{j=-4}^{4}e^{-j^2/(2\sigma^2)}},\qquad
 C_b=C_h+\beta\sum_{k=0}^{5}\frac{0.72^k}{\sum_{j=0}^{5}0.72^j}B_k,
-$$
+```
 
-$$
+```math
 \beta=\begin{cases}0.38&\text{original},\\0.24&\text{variante},\\0.20&\text{Endurance}.\end{cases}
-$$
+```
 
 Aquí $B_k$ representa cada nivel ya desenfocado y reescalado. Finalmente:
 
-$$
+```math
 C_e=\max(5C_b,0),\qquad
 C_{\mathrm{pantalla}}=
 \left(\frac{C_e}{1+\max(C_{e,R},C_{e,G},C_{e,B})}\right)^{1/2.2}.
-$$
+```
 
 La división usa un factor común para RGB, preservando las proporciones
 de color antes de aplicar gamma. El halo y la exposición representan la
@@ -579,10 +579,10 @@ y [tonemap](src/render/tonemap.rs).
 
 La distancia de cámara cambia de forma multiplicativa:
 
-$$
-d_{\mathrm{nuevo}}=\operatorname{clamp}
+```math
+d_{\mathrm{nuevo}}=\mathrm{clamp}
 \left(d_{\mathrm{actual}}e^{-0.05\delta},\;2.2,\;120\right).
-$$
+```
 
 $\delta>0$ acerca la cámara. La entrada de rueda se limita a 2.5 pasos por
 frame; el zoom por teclado también limita el tiempo de frame usado en su
@@ -661,10 +661,10 @@ distancia.
 Dentro de la esfera envolvente de la nave, cada paso de la geodésica se trata
 como una cuerda recta $\mathbf a\to\mathbf b$ y se recorre con sphere tracing:
 
-$$
+```math
 t_{k+1}=t_k+d\big(\mathbf a+t_k\hat{\mathbf u}\big),\qquad
 \text{impacto si } d<2.5\times10^{-4}\ \text{(unidades locales)} .
-$$
+```
 
 La nave mide centésimas de rs, cerca del límite de precisión de un `f32` a
 8 rs del agujero. Por eso la marcha se hace en coordenadas relativas a su
@@ -683,57 +683,57 @@ dividen en dos partes:
 
 - **Luces clave**: las muestras se agrupan en 48 zonas y las tres más
   brillantes se vuelven luces direccionales, con irradiancia
-  $\mathbf E_k=\sum_{i\in k}L_i\,\Delta\omega$ y un tamaño angular sacado de
+  $`\mathbf E_k=\sum_{i\in k}L_i\,\Delta\omega`$ y un tamaño angular sacado de
   la concentración de sus direcciones, que fija la penumbra de su sombra.
 - **Armónicos esféricos de orden 2** con el resto (Ramamoorthi y Hanrahan):
 
-$$
+```math
 c_{lm}=\sum_i L_i\,Y_{lm}(\hat{\boldsymbol\omega}_i)\,\Delta\omega,\qquad
 \mathbf E(\mathbf n)=\sum_{l\le2,\,m}\hat A_l\,c_{lm}\,Y_{lm}(\mathbf n),\qquad
 \hat A_0=\pi,\ \hat A_1=\tfrac{2\pi}{3},\ \hat A_2=\tfrac{\pi}{4}.
-$$
+```
 
 Con una luz uniforme $L$ esto da exactamente $\mathbf E=\pi L$ para cualquier
 normal, y una prueba lo verifica. El sombreado combina difuso, brillos de
 microfacetas GGX y el reflejo borroso de las superficies rugosas:
 
-$$
+```math
 \mathbf L=\mathbf L_e
 +k_d\,\frac{\boldsymbol\rho}{\pi}\Big(\mathbf E(\mathbf n)\,A+\sum_k \mathbf E_k\,(\mathbf n\cdot\mathbf l_k)\,V_k\Big)
 +s\sum_k \mathbf E_k V_k\,\frac{D\,G\,\mathbf F}{4\,(\mathbf n\cdot\mathbf v)}
 +\mathbf F_v\,\mathcal S(0.12,0.55;r)\,\frac{\mathbf E_{\text{total}}(\mathbf r)}{\pi}\,A ,
-$$
+```
 
-$$
+```math
 D=\frac{\alpha^2}{\pi\big((\mathbf n\cdot\mathbf h)^2(\alpha^2-1)+1\big)^2},\qquad
 \alpha=r^2,\qquad
 G=G_1(\mathbf n\cdot\mathbf v)\,G_1(\mathbf n\cdot\mathbf l),\quad
 G_1(x)=\frac{x}{x(1-k)+k},\quad k=\frac{(r+1)^2}{8}.
-$$
+```
 
 $r$ es la rugosidad, ensanchada por el tamaño angular de cada luz para que las
 superficies lisas no generen brillos imposiblemente chicos, y $s$ el specular
 del material. La visibilidad $V_k$ es una sombra suave por marcha de
 distancias, $V=\mathcal S\big(\min_j \kappa h_j/t_j\big)$, y la oclusión
-ambiental $A=1-3.2\sum_{i=1}^{5}0.62^{\,i-1}\big(h_i-d(\mathbf p+h_i\mathbf n)\big)$.
+ambiental $`A=1-3.2\sum_{i=1}^{5}0.62^{\,i-1}\big(h_i-d(\mathbf p+h_i\mathbf n)\big)`$.
 El relieve inclina la normal en el plano tangente:
-$\mathbf n'=\operatorname{normalize}\big(\mathbf n-s(\partial_u h\,\mathbf t_u+\partial_v h\,\mathbf t_v)\big)$.
+$`\mathbf n'=\mathrm{normalize}\big(\mathbf n-s(\partial_u h\,\mathbf t_u+\partial_v h\,\mathbf t_v)\big)`$.
 
 ### Reflexión y refracción
 
-$$
+```math
 \mathbf r=\mathbf d-2(\mathbf d\cdot\mathbf n)\mathbf n,\qquad
 \mathbf t=\eta\,\mathbf d+\big(\eta\cos\theta_i-\cos\theta_t\big)\mathbf n,\qquad
 \cos\theta_t=\sqrt{1-\eta^2(1-\cos^2\theta_i)} .
-$$
+```
 
 Si la raíz es imaginaria hay reflexión total interna. La reflectancia sigue
 la aproximación de Schlick y reparte la energía entre los tres caminos:
 
-$$
+```math
 \mathbf F_v=\boldsymbol\tau\big(F_0+(1-F_0)(1-\cos\theta_i)^5\big),\qquad
 k_r=\max\mathbf F_v,\quad k_t=(1-k_r)\,T,\quad k_d=(1-k_r)(1-T)(1-m).
-$$
+```
 
 En los metales ($m=1$) el reflejo toma el tono del albedo, $\boldsymbol\tau$.
 Dentro del vidrio la luz se atenúa según Beer-Lambert,
@@ -741,9 +741,9 @@ $\mathbf A=e^{-\boldsymbol\sigma\ell}$ con $\boldsymbol\sigma=(0.9,0.35,0.25)$
 por unidad local, lo que tiñe de cian los bordes gruesos. El color final de un
 impacto es:
 
-$$
+```math
 \mathbf C=\mathbf C_{\text{local}}+\mathbf F_v\big(1-\mathcal S(0.12,0.55;r)\big)\,\mathbf C(\mathbf r)+k_t\,\mathbf A\,\mathbf C(\mathbf t).
-$$
+```
 
 Se siguen hasta tres rebotes. Los rayos hijos se guardan en la caché junto con
 sus muestras de gas y se vuelven a sombrear en cada frame: con la cámara
@@ -755,7 +755,7 @@ Cada texel del cubemap se llena una sola vez con la dirección de su centro. La
 cara es el eje dominante y las coordenadas son las otras dos componentes
 divididas por él. El cielo se describe en coordenadas galácticas,
 $b=\arcsin(\hat{\mathbf d}\cdot\mathbf P)$ y
-$l=\operatorname{atan2}(\hat{\mathbf d}\cdot\mathbf S,\hat{\mathbf d}\cdot\mathbf C)$:
+$l=\mathrm{atan2}(\hat{\mathbf d}\cdot\mathbf S,\hat{\mathbf d}\cdot\mathbf C)$:
 una banda $e^{-((b-w(l))/\sigma(l))^2}$ que ondula y se ensancha hacia el bulbo,
 nubes de fBm con deformación de dominio, franjas de polvo oscuro, regiones HII
 rosadas y nebulosas tenues. El bulbo queda arriba a la izquierda de la vista de
@@ -771,16 +771,16 @@ se aplica al canal máximo para conservar el tono del disco. Solo los brillos
 extremos se mezclan con $f$ por canal y se vuelven blancos, y la saturación
 baja a 0.72, como en una emulsión:
 
-$$
-\mathbf C=\operatorname{lerp}\Big(\mathbf C_e\frac{f(M)}{M},\;f(\mathbf C_e),\;0.75\,\mathcal S\big(0.7,1;f(M)\big)\Big),
+```math
+\mathbf C=\mathrm{lerp}\Big(\mathbf C_e\frac{f(M)}{M},\;f(\mathbf C_e),\;0.75\,\mathcal S\big(0.7,1;f(M)\big)\Big),
 \qquad M=\max(\mathbf C_e).
-$$
+```
 
 Después hay un viraje leve (sombras hacia el cian), un velo de lente con los
 dos niveles más anchos del bloom, viñeta, grano por frame y barras 2.39:1. Las
 filas detrás de las barras no se trazan. El destello anamórfico estira
 horizontalmente los puntos más brillantes con un filtro exponencial en ambos
-sentidos, de costo lineal: $y_n=a\,y_{n-1}+x_n$, con $a=e^{-1/(0.12W)}$ y
+sentidos, de costo lineal: $`y_n=a\,y_{n-1}+x_n`$, con $a=e^{-1/(0.12W)}$ y
 normalizado por $(1-a)/(1+a)$.
 
 ## Validación y capturas
@@ -820,10 +820,10 @@ Otras 18 pruebas, 43 en total, cubren la Endurance:
 La verificación analítica comprueba $b_c$, conservación de energía y momento
 angular, la órbita de fotones en $r=1.5$ y la deflexión en campo débil:
 
-$$
+```math
 \alpha(b)\approx\frac{4M}{b}+\frac{15\pi}{4}\left(\frac{M}{b}\right)^2,
 \qquad M/b\ll1.
-$$
+```
 
 Esta expresión sirve de referencia para validar la deflexión de los rayos.
 `--verify` informa los valores medidos, las referencias analíticas y sus
